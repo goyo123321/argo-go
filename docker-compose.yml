@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  tunnel-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tunnel-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"      # 内部HTTP服务
+      - "7860:7860"      # 外部代理服务
+    environment:
+      - TZ=Asia/Shanghai
+      # 基本配置
+      - FILE_PATH=/app/tmp
+      - PORT=3000
+      - EXTERNAL_PORT=7860
+      - UUID=${UUID:-35461c1b-c9fb-efd5-e5d4-cf754d37bd4b}
+      - SUB_PATH=sub
+      
+      # 哪吒监控配置
+      - NEZHA_SERVER=${NEZHA_SERVER}
+      - NEZHA_PORT=${NEZHA_PORT}
+      - NEZHA_KEY=${NEZHA_KEY}
+      
+      # Cloudflare隧道配置
+      - ARGO_DOMAIN=${ARGO_DOMAIN}
+      - ARGO_AUTH=${ARGO_AUTH}
+      - ARGO_PORT=7860
+      
+      # 订阅配置
+      - CFIP=cdns.doon.eu.org
+      - CFPORT=443
+      - NAME=${NAME:-隧道服务器}
+      
+      # 上传配置
+      - UPLOAD_URL=${UPLOAD_URL}
+      - PROJECT_URL=${PROJECT_URL}
+      - AUTO_ACCESS=${AUTO_ACCESS:-false}
+      
+      # 守护进程配置
+      - DAEMON_CHECK_INTERVAL=30000
+      - DAEMON_MAX_RETRIES=5
+      - DAEMON_RESTART_DELAY=10000
+    volumes:
+      - ./data/tmp:/app/tmp
+      - ./data/logs:/app/logs
+      - ./config.yaml:/app/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/daemon-status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - tunnel-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  tunnel-network:
+    driver: bridge
