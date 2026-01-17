@@ -569,13 +569,69 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 	if _, err := os.Stat("index.html"); err == nil {
 		http.ServeFile(w, r, "index.html")
 	} else {
-		// 否则使用嵌入的HTML或默认消息
+		// 否则返回默认消息
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if indexHTML != "" {
-			w.Write([]byte(indexHTML))
-		} else {
-			fmt.Fprintf(w, "Hello world!")
-		}
+		fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head>
+    <title>Proxy Server</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .status {
+            margin-top: 20px;
+        }
+        .endpoints {
+            margin-top: 20px;
+        }
+        a {
+            color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Proxy Server</h1>
+        <p>This is a proxy server with daemon protection.</p>
+        <div class="status">
+            <h2>Daemon Status</h2>
+            <p>Check the status of all daemon processes: <a href="/daemon-status">/daemon-status</a></p>
+        </div>
+        <div class="endpoints">
+            <h2>Available Endpoints</h2>
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/daemon-status">Daemon Status</a></li>
+                <li><a href="/%s">Subscription</a></li>
+            </ul>
+        </div>
+        <div class="restart">
+            <h2>Restart Processes</h2>
+            <p>You can restart processes by sending a POST request to:</p>
+            <code>/restart/nezha</code><br>
+            <code>/restart/xray</code><br>
+            <code>/restart/tunnel</code><br>
+            <code>/restart/all</code>
+        </div>
+    </div>
+</body>
+</html>`, config.SubPath)
 	}
 }
 
