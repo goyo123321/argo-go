@@ -23,12 +23,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	_ "embed"
 )
-
-//go:embed index.html
-var indexHTML string
 
 // Config 配置结构
 type Config struct {
@@ -89,39 +84,45 @@ type DaemonStatus struct {
 
 // DaemonManager 守护进程管理器
 type DaemonManager struct {
-	config       *Config
-	status       *DaemonStatus
-	processes    map[string]*exec.Cmd
-	checkTickers map[string]*time.Ticker
+	config        *Config
+	status        *DaemonStatus
+	processes     map[string]*exec.Cmd
+	checkTickers  map[string]*time.Ticker
 	restartTimers map[string]*time.Timer
-	mu           sync.RWMutex
-	ctx          context.Context
-	cancel       context.CancelFunc
+	mu            sync.RWMutex
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 // 全局变量
 var (
 	daemonManager *DaemonManager
 	config        *Config
+	randomNames   = struct {
+		npmName string
+		webName string
+		botName string
+		phpName string
+	}{
+		npmName: generateRandomName(),
+		webName: generateRandomName(),
+		botName: generateRandomName(),
+		phpName: generateRandomName(),
+	}
 )
 
-func init() {
-	// 初始化随机种子
-	rand.Seed(time.Now().UnixNano())
-}
-
-func randomInt(max int) int {
-	b := make([]byte, 1)
-	rand.Read(b)
-	return int(b[0]) % max
-}
-
-// RandomName 生成随机名称
-func RandomName() string {
+// 生成随机6位字符文件名
+func generateRandomName() string {
 	const chars = "abcdefghijklmnopqrstuvwxyz"
 	result := make([]byte, 6)
-	for i := range result {
-		result[i] = chars[randomInt(len(chars))]
+	for i := 0; i < 6; i++ {
+		b := make([]byte, 1)
+		_, err := rand.Read(b)
+		if err != nil {
+			result[i] = chars[i%len(chars)]
+		} else {
+			result[i] = chars[int(b[0])%len(chars)]
+		}
 	}
 	return string(result)
 }
@@ -244,8 +245,19 @@ func (dm *DaemonManager) startProcess(name, command string, args []string) error
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	
 	// 设置输出管道
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Printf("Failed to create stdout pipe for %s: %v", name, err)
+		dm.scheduleRestart(name, command, args)
+		return err
+	}
+	
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Printf("Failed to create stderr pipe for %s: %v", name, err)
+		dm.scheduleRestart(name, command, args)
+		return err
+	}
 	
 	if err := cmd.Start(); err != nil {
 		log.Printf("Failed to start %s: %v", name, err)
@@ -276,34 +288,55 @@ func (dm *DaemonManager) startProcess(name, command string, args []string) error
 }
 
 func (dm *DaemonManager) handleProcessOutput(name string, stdout, stderr io.ReadCloser) {
+	// 处理标准输出
 	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			log.Printf("[%s] %s", name, line)
-			
-			if name == "tunnel" {
-				dm.handleTunnelOutput(line)
-			}
-			
-			if strings.Contains(line, "Connected") || 
-			   strings.Contains(line, "ready") || 
-			   strings.Contains(line, "started") || 
-			   strings.Contains(line, "listening") {
-				log.Printf("%s started successfully", name)
-				dm.mu.Lock()
-				if status, ok := dm.status.Processes[name]; ok {
-					status.Retries = 0
+		reader := bufio.NewReader(stdout)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("[%s] Error reading stdout: %v", name, err)
 				}
-				dm.mu.Unlock()
+				break
+			}
+			line = strings.TrimSpace(line)
+			if line != "" {
+				log.Printf("[%s] %s", name, line)
+				
+				if name == "tunnel" {
+					dm.handleTunnelOutput(line)
+				}
+				
+				if strings.Contains(line, "Connected") || 
+				   strings.Contains(line, "ready") || 
+				   strings.Contains(line, "started") || 
+				   strings.Contains(line, "listening") {
+					log.Printf("%s started successfully", name)
+					dm.mu.Lock()
+					if status, ok := dm.status.Processes[name]; ok {
+						status.Retries = 0
+					}
+					dm.mu.Unlock()
+				}
 			}
 		}
 	}()
 	
+	// 处理标准错误
 	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			log.Printf("[%s ERROR] %s", name, scanner.Text())
+		reader := bufio.NewReader(stderr)
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("[%s ERROR] Error reading stderr: %v", name, err)
+				}
+				break
+			}
+			line = strings.TrimSpace(line)
+			if line != "" {
+				log.Printf("[%s ERROR] %s", name, line)
+			}
 		}
 	}()
 }
@@ -313,18 +346,23 @@ func (dm *DaemonManager) handleTunnelOutput(output string) {
 	if dm.status.Tunnel.Type == TunnelTemporary {
 		if strings.Contains(output, "trycloudflare.com") {
 			// 提取域名
+			replacer := strings.NewReplacer("https://", "", "http://", "")
 			parts := strings.Split(output, "trycloudflare.com")
 			if len(parts) > 0 {
-				domain := strings.TrimPrefix(strings.TrimSuffix(parts[0], "https://"), "http://") + "trycloudflare.com"
+				domain := replacer.Replace(strings.TrimSpace(parts[0])) + "trycloudflare.com"
 				log.Printf("Temporary tunnel domain detected: %s", domain)
 				
-				if dm.status.Tunnel.Domain != domain {
+				dm.mu.Lock()
+				currentDomain := dm.status.Tunnel.Domain
+				dm.mu.Unlock()
+				
+				if currentDomain != domain {
 					dm.setTunnelInfo(TunnelTemporary, domain)
 					
 					// 触发订阅更新
 					go func() {
 						time.Sleep(2 * time.Second)
-						generateSubscription(dm.config, domain)
+						generateSubscription(domain)
 					}()
 				}
 			}
@@ -337,7 +375,7 @@ func (dm *DaemonManager) monitorProcess(name string, cmd *exec.Cmd) {
 	dm.mu.Lock()
 	defer dm.mu.Unlock()
 	
-	log.Printf("%s process exited with error: %v", name, err)
+	log.Printf("%s process exited with code: %v", name, err)
 	delete(dm.processes, name)
 	
 	if status, ok := dm.status.Processes[name]; ok {
@@ -565,7 +603,13 @@ func handleRestart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	processName := strings.TrimPrefix(r.URL.Path, "/restart/")
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 3 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	
+	processName := pathParts[2]
 	
 	validProcesses := map[string]bool{
 		"nezha":  true,
@@ -580,10 +624,12 @@ func handleRestart(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	if processName == "all" {
+		// 重启所有进程
 		for name := range validProcesses {
 			if name != "all" {
-				// 触发重启
-				daemonManager.scheduleRestart(name, "", nil)
+				go func(n string) {
+					daemonManager.scheduleRestart(n, "", nil)
+				}(name)
 			}
 		}
 		
@@ -593,7 +639,7 @@ func handleRestart(w http.ResponseWriter, r *http.Request) {
 			"message": "All processes restart initiated",
 		})
 	} else {
-		daemonManager.scheduleRestart(processName, "", nil)
+		go daemonManager.scheduleRestart(processName, "", nil)
 		
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -609,7 +655,11 @@ func handleSubscription(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write(data)
 	} else {
-		http.Error(w, "Subscription not available", http.StatusNotFound)
+		// 如果没有订阅文件，生成一个简单的订阅
+		subTxt := fmt.Sprintf(`vless://%s@example.com:443?security=tls#Proxy-Server`, config.UUID)
+		encoded := base64.StdEncoding.EncodeToString([]byte(subTxt))
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte(encoded))
 	}
 }
 
@@ -776,14 +826,21 @@ func downloadFile(fileName, fileUrl string) error {
 		return fmt.Errorf("failed to download %s: status %d", fileName, resp.StatusCode)
 	}
 	
-	data, err := io.ReadAll(resp.Body)
+	filePath := filepath.Join(config.FilePath, fileName)
+	out, err := os.Create(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to read %s: %v", fileName, err)
+		return fmt.Errorf("failed to create file %s: %v", fileName, err)
+	}
+	defer out.Close()
+	
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to write file %s: %v", fileName, err)
 	}
 	
-	filePath := filepath.Join(config.FilePath, fileName)
-	if err := os.WriteFile(filePath, data, 0755); err != nil {
-		return fmt.Errorf("failed to save %s: %v", fileName, err)
+	// 设置文件权限
+	if err := os.Chmod(filePath, 0755); err != nil {
+		log.Printf("Warning: Failed to set permissions for %s: %v", fileName, err)
 	}
 	
 	log.Printf("Downloaded %s successfully", fileName)
@@ -811,13 +868,13 @@ func downloadFiles() error {
 	// 基础文件
 	if architecture == "arm" {
 		files = append(files, 
-			struct{ name, url string }{"web", "https://arm64.ssss.nyc.mn/web"},
-			struct{ name, url string }{"bot", "https://arm64.ssss.nyc.mn/bot"},
+			struct{ name, url string }{randomNames.webName, "https://arm64.ssss.nyc.mn/web"},
+			struct{ name, url string }{randomNames.botName, "https://arm64.ssss.nyc.mn/bot"},
 		)
 	} else {
 		files = append(files,
-			struct{ name, url string }{"web", "https://amd64.ssss.nyc.mn/web"},
-			struct{ name, url string }{"bot", "https://amd64.ssss.nyc.mn/bot"},
+			struct{ name, url string }{randomNames.webName, "https://amd64.ssss.nyc.mn/web"},
+			struct{ name, url string }{randomNames.botName, "https://amd64.ssss.nyc.mn/bot"},
 		)
 	}
 	
@@ -825,15 +882,15 @@ func downloadFiles() error {
 	if config.NezhaServer != "" && config.NezhaKey != "" {
 		if config.NezhaPort != "" {
 			if architecture == "arm" {
-				files = append(files, struct{ name, url string }{"agent", "https://arm64.ssss.nyc.mn/agent"})
+				files = append(files, struct{ name, url string }{randomNames.npmName, "https://arm64.ssss.nyc.mn/agent"})
 			} else {
-				files = append(files, struct{ name, url string }{"agent", "https://amd64.ssss.nyc.mn/agent"})
+				files = append(files, struct{ name, url string }{randomNames.npmName, "https://amd64.ssss.nyc.mn/agent"})
 			}
 		} else {
 			if architecture == "arm" {
-				files = append(files, struct{ name, url string }{"v1", "https://arm64.ssss.nyc.mn/v1"})
+				files = append(files, struct{ name, url string }{randomNames.phpName, "https://arm64.ssss.nyc.mn/v1"})
 			} else {
-				files = append(files, struct{ name, url string }{"v1", "https://amd64.ssss.nyc.mn/v1"})
+				files = append(files, struct{ name, url string }{randomNames.phpName, "https://amd64.ssss.nyc.mn/v1"})
 			}
 		}
 	}
@@ -865,83 +922,123 @@ func downloadFiles() error {
 	return nil
 }
 
-// 启动哪吒代理
-func startNezhaAgent() error {
-	if config.NezhaServer == "" || config.NezhaKey == "" {
-		log.Println("NEZHA variables are empty, skipping Nezha agent")
-		return nil
+// 获取ISP信息
+func getMetaInfo() string {
+	client := &http.Client{Timeout: 3 * time.Second}
+	
+	// 尝试第一个API
+	resp, err := client.Get("https://ipapi.co/json/")
+	if err == nil {
+		defer resp.Body.Close()
+		var data map[string]interface{}
+		if json.NewDecoder(resp.Body).Decode(&data) == nil {
+			if countryCode, ok := data["country_code"].(string); ok {
+				if org, ok := data["org"].(string); ok {
+					return fmt.Sprintf("%s_%s", countryCode, org)
+				}
+			}
+		}
 	}
 	
-	var cmd *exec.Cmd
-	if config.NezhaPort == "" {
-		// 使用php版本
-		// 生成config.yaml
-		configYaml := fmt.Sprintf(`
-client_secret: %s
-debug: false
-disable_auto_update: true
-disable_command_execute: false
-disable_force_update: true
-disable_nat: false
-disable_send_query: false
-gpu: false
-insecure_tls: true
-ip_report_period: 1800
-report_delay: 4
-server: %s
-skip_connection_count: true
-skip_procs_count: true
-temperature: false
-tls: %s
-use_gitee_to_upgrade: false
-use_ipv6_country_code: false
-uuid: %s`,
-			config.NezhaKey, config.NezhaServer, 
-			strings.Contains(config.NezhaServer, ":443") || 
-			strings.Contains(config.NezhaServer, ":8443") || 
-			strings.Contains(config.NezhaServer, ":2096") || 
-			strings.Contains(config.NezhaServer, ":2087") || 
-			strings.Contains(config.NezhaServer, ":2083") || 
-			strings.Contains(config.NezhaServer, ":2053"),
-			config.UUID)
-		
-		configPath := filepath.Join(config.FilePath, "config.yaml")
-		if err := os.WriteFile(configPath, []byte(configYaml), 0644); err != nil {
-			return err
+	// 尝试备用API
+	resp, err = client.Get("http://ip-api.com/json/")
+	if err == nil {
+		defer resp.Body.Close()
+		var data map[string]interface{}
+		if json.NewDecoder(resp.Body).Decode(&data) == nil {
+			if status, ok := data["status"].(string); ok && status == "success" {
+				if countryCode, ok := data["countryCode"].(string); ok {
+					if org, ok := data["org"].(string); ok {
+						return fmt.Sprintf("%s_%s", countryCode, org)
+					}
+				}
+			}
 		}
-		
-		cmd = exec.Command(filepath.Join(config.FilePath, "v1"),
-			"-c", configPath)
-	} else {
-		// 使用agent版本
-		args := []string{
-			"-s", fmt.Sprintf("%s:%s", config.NezhaServer, config.NezhaPort),
-			"-p", config.NezhaKey,
-			"--disable-auto-update",
-			"--report-delay", "4",
-			"--skip-conn",
-			"--skip-procs",
-		}
-		
-		// 检查是否需要TLS
-		port, _ := strconv.Atoi(config.NezhaPort)
-		tlsPorts := map[int]bool{443: true, 8443: true, 2096: true, 2087: true, 2083: true, 2053: true}
-		if tlsPorts[port] {
-			args = append(args, "--tls")
-		}
-		
-		cmd = exec.Command(filepath.Join(config.FilePath, "agent"), args...)
 	}
 	
-	return daemonManager.startProcess("nezha", cmd.Path, cmd.Args[1:])
+	return "Unknown"
 }
 
-// 启动Xray
-func startXray() error {
-	cmd := exec.Command(filepath.Join(config.FilePath, "web"),
-		"-c", filepath.Join(config.FilePath, "config.json"))
+// 生成订阅
+func generateSubscription(domain string) {
+	if domain == "" {
+		log.Println("No tunnel domain available for subscription generation")
+		return
+	}
 	
-	return daemonManager.startProcess("xray", cmd.Path, cmd.Args[1:])
+	isp := getMetaInfo()
+	nodeName := isp
+	if config.Name != "" {
+		nodeName = fmt.Sprintf("%s-%s", config.Name, isp)
+	}
+	
+	// 生成VMESS配置
+	vmess := map[string]interface{}{
+		"v":    "2",
+		"ps":   nodeName,
+		"add":  config.CFIP,
+		"port": config.CFPort,
+		"id":   config.UUID,
+		"aid":  "0",
+		"scy":  "none",
+		"net":  "ws",
+		"type": "none",
+		"host": domain,
+		"path": "/vmess-argo?ed=2560",
+		"tls":  "tls",
+		"sni":  domain,
+		"alpn": "",
+		"fp":   "firefox",
+	}
+	
+	vmessJSON, _ := json.Marshal(vmess)
+	vmessBase64 := base64.StdEncoding.EncodeToString(vmessJSON)
+	
+	subTxt := fmt.Sprintf(`vless://%s@%s:%d?encryption=none&security=tls&sni=%s&fp=firefox&type=ws&host=%s&path=%%2Fvless-argo%%3Fed%%3D2560#%s
+
+vmess://%s
+
+trojan://%s@%s:%d?security=tls&sni=%s&fp=firefox&type=ws&host=%s&path=%%2Ftrojan-argo%%3Fed%%3D2560#%s`,
+		config.UUID, config.CFIP, config.CFPort, domain, domain, nodeName,
+		vmessBase64,
+		config.UUID, config.CFIP, config.CFPort, domain, domain, nodeName,
+	)
+	
+	encoded := base64.StdEncoding.EncodeToString([]byte(subTxt))
+	
+	subPath := filepath.Join(config.FilePath, "sub.txt")
+	if err := os.WriteFile(subPath, []byte(encoded), 0644); err != nil {
+		log.Printf("Failed to save subscription: %v", err)
+	} else {
+		log.Printf("Subscription saved to %s", subPath)
+	}
+	
+	// 上传订阅
+	go uploadSubscription(encoded)
+}
+
+// 上传订阅
+func uploadSubscription(subscription string) {
+	if config.UploadURL == "" {
+		return
+	}
+	
+	if config.ProjectURL != "" {
+		subscriptionURL := fmt.Sprintf("%s/%s", config.ProjectURL, config.SubPath)
+		data := map[string]interface{}{
+			"subscription": []string{subscriptionURL},
+		}
+		
+		jsonData, _ := json.Marshal(data)
+		_, err := http.Post(config.UploadURL+"/api/add-subscriptions", 
+			"application/json", 
+			bytes.NewBuffer(jsonData))
+		if err != nil {
+			log.Printf("Failed to upload subscription: %v", err)
+		} else {
+			log.Println("Subscription uploaded successfully")
+		}
+	}
 }
 
 // 分析隧道类型
@@ -1013,9 +1110,97 @@ ingress:
 	return nil
 }
 
+// 启动哪吒代理
+func startNezhaAgent() error {
+	if config.NezhaServer == "" || config.NezhaKey == "" {
+		log.Println("NEZHA variables are empty, skipping Nezha agent")
+		return nil
+	}
+	
+	var cmd *exec.Cmd
+	if config.NezhaPort == "" {
+		// 使用php版本
+		// 生成config.yaml
+		port := ""
+		if strings.Contains(config.NezhaServer, ":") {
+			parts := strings.Split(config.NezhaServer, ":")
+			if len(parts) > 1 {
+				port = parts[1]
+			}
+		}
+		
+		nezhatls := "false"
+		tlsPorts := []string{"443", "8443", "2096", "2087", "2083", "2053"}
+		for _, tlsPort := range tlsPorts {
+			if port == tlsPort {
+				nezhatls = "true"
+				break
+			}
+		}
+		
+		configYaml := fmt.Sprintf(`client_secret: %s
+debug: false
+disable_auto_update: true
+disable_command_execute: false
+disable_force_update: true
+disable_nat: false
+disable_send_query: false
+gpu: false
+insecure_tls: true
+ip_report_period: 1800
+report_delay: 4
+server: %s
+skip_connection_count: true
+skip_procs_count: true
+temperature: false
+tls: %s
+use_gitee_to_upgrade: false
+use_ipv6_country_code: false
+uuid: %s`, config.NezhaKey, config.NezhaServer, nezhatls, config.UUID)
+		
+		configPath := filepath.Join(config.FilePath, "config.yaml")
+		if err := os.WriteFile(configPath, []byte(configYaml), 0644); err != nil {
+			return err
+		}
+		
+		phpPath := filepath.Join(config.FilePath, randomNames.phpName)
+		cmd = exec.Command(phpPath, "-c", configPath)
+	} else {
+		// 使用agent版本
+		args := []string{
+			"-s", fmt.Sprintf("%s:%s", config.NezhaServer, config.NezhaPort),
+			"-p", config.NezhaKey,
+			"--disable-auto-update",
+			"--report-delay", "4",
+			"--skip-conn",
+			"--skip-procs",
+		}
+		
+		// 检查是否需要TLS
+		port, _ := strconv.Atoi(config.NezhaPort)
+		tlsPorts := map[int]bool{443: true, 8443: true, 2096: true, 2087: true, 2083: true, 2053: true}
+		if tlsPorts[port] {
+			args = append(args, "--tls")
+		}
+		
+		npmPath := filepath.Join(config.FilePath, randomNames.npmName)
+		cmd = exec.Command(npmPath, args...)
+	}
+	
+	return daemonManager.startProcess("nezha", cmd.Path, cmd.Args[1:])
+}
+
+// 启动Xray
+func startXray() error {
+	webPath := filepath.Join(config.FilePath, randomNames.webName)
+	cmd := exec.Command(webPath, "-c", filepath.Join(config.FilePath, "config.json"))
+	
+	return daemonManager.startProcess("xray", cmd.Path, cmd.Args[1:])
+}
+
 // 启动Cloudflared隧道
 func startCloudflaredTunnel(tunnelType TunnelType) error {
-	botPath := filepath.Join(config.FilePath, "bot")
+	botPath := filepath.Join(config.FilePath, randomNames.botName)
 	if _, err := os.Stat(botPath); os.IsNotExist(err) {
 		return fmt.Errorf("cloudflared binary not found")
 	}
@@ -1069,127 +1254,6 @@ func startCloudflaredTunnel(tunnelType TunnelType) error {
 	return daemonManager.startProcess("tunnel", botPath, args)
 }
 
-// 生成订阅
-func generateSubscription(domain string) {
-	if domain == "" {
-		log.Println("No tunnel domain available for subscription generation")
-		return
-	}
-	
-	// 获取ISP信息
-	isp := "Unknown"
-	resp, err := http.Get("https://ipapi.co/json/")
-	if err == nil {
-		defer resp.Body.Close()
-		var data map[string]interface{}
-		if json.NewDecoder(resp.Body).Decode(&data) == nil {
-			if country, ok := data["country_code"].(string); ok {
-				if org, ok := data["org"].(string); ok {
-					isp = fmt.Sprintf("%s_%s", country, org)
-				}
-			}
-		}
-	}
-	
-	nodeName := isp
-	if config.Name != "" {
-		nodeName = fmt.Sprintf("%s-%s", config.Name, isp)
-	}
-	
-	// 生成VMESS配置
-	vmess := map[string]interface{}{
-		"v":    "2",
-		"ps":   nodeName,
-		"add":  config.CFIP,
-		"port": config.CFPort,
-		"id":   config.UUID,
-		"aid":  "0",
-		"scy":  "none",
-		"net":  "ws",
-		"type": "none",
-		"host": domain,
-		"path": "/vmess-argo?ed=2560",
-		"tls":  "tls",
-		"sni":  domain,
-		"alpn": "",
-		"fp":   "firefox",
-	}
-	
-	vmessJSON, _ := json.Marshal(vmess)
-	vmessBase64 := base64.StdEncoding.EncodeToString(vmessJSON)
-	
-	subTxt := fmt.Sprintf(`
-vless://%s@%s:%d?encryption=none&security=tls&sni=%s&fp=firefox&type=ws&host=%s&path=%%2Fvless-argo%%3Fed%%3D2560#%s
-  
-vmess://%s
-  
-trojan://%s@%s:%d?security=tls&sni=%s&fp=firefox&type=ws&host=%s&path=%%2Ftrojan-argo%%3Fed%%3D2560#%s
-`,
-		config.UUID, config.CFIP, config.CFPort, domain, domain, nodeName,
-		vmessBase64,
-		config.UUID, config.CFIP, config.CFPort, domain, domain, nodeName,
-	)
-	
-	encoded := base64.StdEncoding.EncodeToString([]byte(subTxt))
-	
-	subPath := filepath.Join(config.FilePath, "sub.txt")
-	if err := os.WriteFile(subPath, []byte(encoded), 0644); err != nil {
-		log.Printf("Failed to save subscription: %v", err)
-	} else {
-		log.Printf("Subscription saved to %s", subPath)
-	}
-	
-	// 上传订阅
-	go uploadSubscription(encoded)
-}
-
-// 上传订阅
-func uploadSubscription(subscription string) {
-	if config.UploadURL == "" {
-		return
-	}
-	
-	if config.ProjectURL != "" {
-		subscriptionURL := fmt.Sprintf("%s/%s", config.ProjectURL, config.SubPath)
-		data := map[string]interface{}{
-			"subscription": []string{subscriptionURL},
-		}
-		
-		jsonData, _ := json.Marshal(data)
-		_, err := http.Post(config.UploadURL+"/api/add-subscriptions", 
-			"application/json", 
-			bytes.NewBuffer(jsonData))
-		if err != nil {
-			log.Printf("Failed to upload subscription: %v", err)
-		} else {
-			log.Println("Subscription uploaded successfully")
-		}
-	}
-}
-
-// 添加访问任务
-func addVisitTask() {
-	if !config.AutoAccess || config.ProjectURL == "" {
-		log.Println("Skipping adding automatic access task")
-		return
-	}
-	
-	data := map[string]string{
-		"url": config.ProjectURL,
-	}
-	
-	jsonData, _ := json.Marshal(data)
-	_, err := http.Post("https://oooo.serv00.net/add-url", 
-		"application/json", 
-		bytes.NewBuffer(jsonData))
-	
-	if err != nil {
-		log.Printf("Add automatic access task failed: %v", err)
-	} else {
-		log.Println("Automatic access task added successfully")
-	}
-}
-
 // 监控隧道域名
 func monitorTunnelDomain(tunnelType TunnelType) {
 	log.Println("Starting tunnel domain monitoring...")
@@ -1221,9 +1285,11 @@ func extractDomainFromLogs(tunnelType TunnelType) {
 				lines := strings.Split(content, "\n")
 				for _, line := range lines {
 					if strings.Contains(line, "trycloudflare.com") {
+						// 提取域名
 						parts := strings.Split(line, "trycloudflare.com")
 						if len(parts) > 0 {
-							domain := strings.TrimPrefix(strings.TrimSuffix(parts[0], "https://"), "http://") + "trycloudflare.com"
+							replacer := strings.NewReplacer("https://", "", "http://", "", " ", "")
+							domain := replacer.Replace(parts[0]) + "trycloudflare.com"
 							log.Printf("Extracted tunnel domain: %s", domain)
 							daemonManager.setTunnelInfo(tunnelType, domain)
 							generateSubscription(domain)
@@ -1236,6 +1302,29 @@ func extractDomainFromLogs(tunnelType TunnelType) {
 		time.Sleep(5 * time.Second)
 	}
 	log.Println("Failed to extract tunnel domain")
+}
+
+// 添加访问任务
+func addVisitTask() {
+	if !config.AutoAccess || config.ProjectURL == "" {
+		log.Println("Skipping adding automatic access task")
+		return
+	}
+	
+	data := map[string]string{
+		"url": config.ProjectURL,
+	}
+	
+	jsonData, _ := json.Marshal(data)
+	_, err := http.Post("https://oooo.serv00.net/add-url", 
+		"application/json", 
+		bytes.NewBuffer(jsonData))
+	
+	if err != nil {
+		log.Printf("Add automatic access task failed: %v", err)
+	} else {
+		log.Println("Automatic access task added successfully")
+	}
 }
 
 // 清理旧文件
