@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -40,7 +41,6 @@ type Config struct {
 	NezhaKey       string `json:"NEZHA_KEY"`
 	ArgoDomain     string `json:"ARGO_DOMAIN"`
 	ArgoAuth       string `json:"ARGO_AUTH"`
-	ArgoPort       int    `json:"ARGO_PORT"`
 	CFIP           string `json:"CFIP"`
 	CFPort         int    `json:"CFPORT"`
 	Name           string `json:"NAME"`
@@ -98,16 +98,11 @@ type DaemonManager struct {
 var (
 	daemonManager *DaemonManager
 	config        *Config
-	randomNames   = struct {
+	randomNames   struct {
 		npmName string
 		webName string
 		botName string
 		phpName string
-	}{
-		npmName: generateRandomName(),
-		webName: generateRandomName(),
-		botName: generateRandomName(),
-		phpName: generateRandomName(),
 	}
 )
 
@@ -146,8 +141,7 @@ func NewConfig() *Config {
 		NezhaPort:      getEnv("NEZHA_PORT", ""),
 		NezhaKey:       getEnv("NEZHA_KEY", "rRA5ZrgOmsosl7EiyIuJBhnGwcAqWDUr"),
 		ArgoDomain:     getEnv("ARGO_DOMAIN", "hug3.bgxzg.indevs.in"),
-		ArgoAuth:       getEnv("ARGO_AUTH", `eyJhIjoiMzZhYzM1MmM5YmY2N2M1MzE0ZGJmYmE3MzFmMmIzMTkiLCJ0IjoiMWFhZmZiYmMtMTViZi00M2U0LTk1ZTUtZDdiMGJlODYxOTViIiwicyI6Ik9UUXdaV1EyTTJNdFpqUmhNUzAwWW1Sa0xUaG1ZVEl0WkdVeE5tTmpOR1F5WldaaiJ9`),
-		ArgoPort:       getEnvInt("ARGO_PORT", 7860),
+		ArgoAuth:       getEnv("ARGO_AUTH", "eyJhIjoiMzZhYzM1MmM5YmY2N2M1MzE0ZGJmYmE3MzFmMmIzMTkiLCJ0IjoiMWFhZmZiYmMtMTViZi00M2U0LTk1ZTUtZDdiMGJlODYxOTViIiwicyI6Ik9UUXdaV1EyTTJNdFpqUmhNUzAwWW1Sa0xUaG1ZVEl0WkdVeE5tTmpOR1F5WldaaiJ9"),
 		CFIP:           getEnv("CFIP", "cdns.doon.eu.org"),
 		CFPort:         getEnvInt("CFPORT", 443),
 		Name:           getEnv("NAME", ""),
@@ -195,6 +189,12 @@ func NewDaemonManager(cfg *Config) *DaemonManager {
 		"xray":   {Running: false},
 		"tunnel": {Running: false},
 	}
+	
+	// 重新生成随机名称
+	randomNames.npmName = generateRandomName()
+	randomNames.webName = generateRandomName()
+	randomNames.botName = generateRandomName()
+	randomNames.phpName = generateRandomName()
 	
 	// 加载保存的状态
 	dm.loadStatus()
@@ -344,27 +344,24 @@ func (dm *DaemonManager) handleProcessOutput(name string, stdout, stderr io.Read
 func (dm *DaemonManager) handleTunnelOutput(output string) {
 	// 检查临时隧道的域名
 	if dm.status.Tunnel.Type == TunnelTemporary {
-		if strings.Contains(output, "trycloudflare.com") {
-			// 提取域名
-			replacer := strings.NewReplacer("https://", "", "http://", "")
-			parts := strings.Split(output, "trycloudflare.com")
-			if len(parts) > 0 {
-				domain := replacer.Replace(strings.TrimSpace(parts[0])) + "trycloudflare.com"
-				log.Printf("Temporary tunnel domain detected: %s", domain)
+		re := regexp.MustCompile(`https?://([a-zA-Z0-9-]+\.trycloudflare\.com)`)
+		matches := re.FindStringSubmatch(output)
+		if len(matches) > 1 {
+			domain := matches[1]
+			log.Printf("Temporary tunnel domain detected: %s", domain)
+			
+			dm.mu.Lock()
+			currentDomain := dm.status.Tunnel.Domain
+			dm.mu.Unlock()
+			
+			if currentDomain != domain {
+				dm.setTunnelInfo(TunnelTemporary, domain)
 				
-				dm.mu.Lock()
-				currentDomain := dm.status.Tunnel.Domain
-				dm.mu.Unlock()
-				
-				if currentDomain != domain {
-					dm.setTunnelInfo(TunnelTemporary, domain)
-					
-					// 触发订阅更新
-					go func() {
-						time.Sleep(2 * time.Second)
-						generateSubscription(domain)
-					}()
-				}
+				// 触发订阅更新
+				go func() {
+					time.Sleep(2 * time.Second)
+					generateSubscription(domain)
+				}()
 			}
 		}
 	}
@@ -458,7 +455,7 @@ func (dm *DaemonManager) startHealthCheck(name string) {
 	}()
 }
 
-func (dm *DaemonManager) checkProcessHealth(name string) {
+func (dm *DaemonManager) checkProcessHealth(name string) bool {
 	dm.mu.RLock()
 	cmd, ok := dm.processes[name]
 	dm.mu.RUnlock()
@@ -470,12 +467,13 @@ func (dm *DaemonManager) checkProcessHealth(name string) {
 			status.Running = false
 		}
 		dm.mu.Unlock()
-		return
+		dm.saveStatus()
+		return false
 	}
 	
 	// 检查进程是否存在
 	if err := cmd.Process.Signal(syscall.Signal(0)); err != nil {
-		log.Printf("%s process (PID: %d) is dead", name, cmd.Process.Pid)
+		log.Printf("%s process (PID: %d) is dead: %v", name, cmd.Process.Pid, err)
 		dm.mu.Lock()
 		if status, ok := dm.status.Processes[name]; ok {
 			status.Running = false
@@ -483,7 +481,10 @@ func (dm *DaemonManager) checkProcessHealth(name string) {
 		delete(dm.processes, name)
 		dm.mu.Unlock()
 		dm.saveStatus()
+		return false
 	}
+	
+	return true
 }
 
 func (dm *DaemonManager) getAllStatus() map[string]interface{} {
@@ -565,73 +566,15 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// 如果有index.html文件，则使用它
-	if _, err := os.Stat("index.html"); err == nil {
-		http.ServeFile(w, r, "index.html")
+	// 检查index.html文件是否存在
+	indexPath := "index.html"
+	if _, err := os.Stat(indexPath); err == nil {
+		// 文件存在，发送文件
+		http.ServeFile(w, r, indexPath)
 	} else {
-		// 否则返回默认消息
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<!DOCTYPE html>
-<html>
-<head>
-    <title>Proxy Server</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-        }
-        .status {
-            margin-top: 20px;
-        }
-        .endpoints {
-            margin-top: 20px;
-        }
-        a {
-            color: #0066cc;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 Proxy Server</h1>
-        <p>This is a proxy server with daemon protection.</p>
-        <div class="status">
-            <h2>Daemon Status</h2>
-            <p>Check the status of all daemon processes: <a href="/daemon-status">/daemon-status</a></p>
-        </div>
-        <div class="endpoints">
-            <h2>Available Endpoints</h2>
-            <ul>
-                <li><a href="/">Home</a></li>
-                <li><a href="/daemon-status">Daemon Status</a></li>
-                <li><a href="/%s">Subscription</a></li>
-            </ul>
-        </div>
-        <div class="restart">
-            <h2>Restart Processes</h2>
-            <p>You can restart processes by sending a POST request to:</p>
-            <code>/restart/nezha</code><br>
-            <code>/restart/xray</code><br>
-            <code>/restart/tunnel</code><br>
-            <code>/restart/all</code>
-        </div>
-    </div>
-</body>
-</html>`, config.SubPath)
+		// 文件不存在，返回"Hello world!"
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte("Hello world!"))
 	}
 }
 
@@ -872,7 +815,8 @@ func generateConfig() error {
 
 // 下载文件
 func downloadFile(fileName, fileUrl string) error {
-	resp, err := http.Get(fileUrl)
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(fileUrl)
 	if err != nil {
 		return fmt.Errorf("failed to download %s: %v", fileName, err)
 	}
@@ -906,7 +850,7 @@ func downloadFile(fileName, fileUrl string) error {
 // 获取系统架构
 func getSystemArchitecture() string {
 	arch := runtime.GOARCH
-	if arch == "arm" || arch == "arm64" {
+	if arch == "arm" || arch == "arm64" || arch == "aarch64" {
 		return "arm"
 	}
 	return "amd"
@@ -961,6 +905,7 @@ func downloadFiles() error {
 			defer wg.Done()
 			if err := downloadFile(name, url); err != nil {
 				errChan <- err
+				log.Printf("Failed to download %s: %v", name, err)
 			}
 		}(file.name, file.url)
 	}
@@ -1028,6 +973,9 @@ func generateSubscription(domain string) {
 		nodeName = fmt.Sprintf("%s-%s", config.Name, isp)
 	}
 	
+	// URL编码路径
+	encodedPath := url.PathEscape("/vless-argo?ed=2560")
+	
 	// 生成VMESS配置
 	vmess := map[string]interface{}{
 		"v":    "2",
@@ -1050,14 +998,15 @@ func generateSubscription(domain string) {
 	vmessJSON, _ := json.Marshal(vmess)
 	vmessBase64 := base64.StdEncoding.EncodeToString(vmessJSON)
 	
-	subTxt := fmt.Sprintf(`vless://%s@%s:%d?encryption=none&security=tls&sni=%s&fp=firefox&type=ws&host=%s&path=%%2Fvless-argo%%3Fed%%3D2560#%s
+	// 构建订阅内容
+	subTxt := fmt.Sprintf(`vless://%s@%s:%d?encryption=none&security=tls&sni=%s&fp=firefox&type=ws&host=%s&path=%s#%s
 
 vmess://%s
 
-trojan://%s@%s:%d?security=tls&sni=%s&fp=firefox&type=ws&host=%s&path=%%2Ftrojan-argo%%3Fed%%3D2560#%s`,
-		config.UUID, config.CFIP, config.CFPort, domain, domain, nodeName,
+trojan://%s@%s:%d?security=tls&sni=%s&fp=firefox&type=ws&host=%s&path=%s#%s`,
+		config.UUID, config.CFIP, config.CFPort, domain, domain, encodedPath, nodeName,
 		vmessBase64,
-		config.UUID, config.CFIP, config.CFPort, domain, domain, nodeName,
+		config.UUID, config.CFIP, config.CFPort, domain, domain, encodedPath, nodeName,
 	)
 	
 	encoded := base64.StdEncoding.EncodeToString([]byte(subTxt))
@@ -1086,7 +1035,8 @@ func uploadSubscription(subscription string) {
 		}
 		
 		jsonData, _ := json.Marshal(data)
-		_, err := http.Post(config.UploadURL+"/api/add-subscriptions", 
+		client := &http.Client{Timeout: 10 * time.Second}
+		_, err := client.Post(config.UploadURL+"/api/add-subscriptions", 
 			"application/json", 
 			bytes.NewBuffer(jsonData))
 		if err != nil {
@@ -1102,7 +1052,8 @@ func analyzeTunnelType() TunnelType {
 	log.Println("Analyzing tunnel configuration...")
 	
 	if config.ArgoAuth != "" {
-		if strings.Contains(config.ArgoAuth, "TunnelSecret") {
+		// 检查是否是JSON格式（固定隧道）
+		if strings.HasPrefix(config.ArgoAuth, "{") && strings.HasSuffix(config.ArgoAuth, "}") {
 			log.Println("Tunnel type: FIXED (JSON configuration)")
 			return TunnelFixed
 		} else if len(config.ArgoAuth) >= 120 && len(config.ArgoAuth) <= 250 {
@@ -1168,8 +1119,8 @@ ingress:
 
 // 启动哪吒代理
 func startNezhaAgent() error {
-	if config.NezhaServer == "" || config.NezhaKey == "" {
-		log.Println("NEZHA variables are empty, skipping Nezha agent")
+	if config.NezhaServer == "" || config.NezhaKey != "" {
+		log.Println("NEZHA_KEY is empty, skipping Nezha agent")
 		return nil
 	}
 	
@@ -1334,30 +1285,23 @@ func monitorTunnelDomain(tunnelType TunnelType) {
 // 从日志中提取域名
 func extractDomainFromLogs(tunnelType TunnelType) {
 	bootLogPath := filepath.Join(config.FilePath, "boot.log")
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 15; i++ {
 		if data, err := os.ReadFile(bootLogPath); err == nil {
 			content := string(data)
-			if strings.Contains(content, "trycloudflare.com") {
-				lines := strings.Split(content, "\n")
-				for _, line := range lines {
-					if strings.Contains(line, "trycloudflare.com") {
-						// 提取域名
-						parts := strings.Split(line, "trycloudflare.com")
-						if len(parts) > 0 {
-							replacer := strings.NewReplacer("https://", "", "http://", "", " ", "")
-							domain := replacer.Replace(parts[0]) + "trycloudflare.com"
-							log.Printf("Extracted tunnel domain: %s", domain)
-							daemonManager.setTunnelInfo(tunnelType, domain)
-							generateSubscription(domain)
-							return
-						}
-					}
-				}
+			// 使用正则匹配域名
+			re := regexp.MustCompile(`https?://([a-zA-Z0-9-]+\.trycloudflare\.com)`)
+			matches := re.FindStringSubmatch(content)
+			if len(matches) > 1 {
+				domain := matches[1]
+				log.Printf("Extracted tunnel domain: %s", domain)
+				daemonManager.setTunnelInfo(tunnelType, domain)
+				generateSubscription(domain)
+				return
 			}
 		}
 		time.Sleep(5 * time.Second)
 	}
-	log.Println("Failed to extract tunnel domain")
+	log.Println("Failed to extract tunnel domain after 15 attempts")
 }
 
 // 添加访问任务
@@ -1372,7 +1316,8 @@ func addVisitTask() {
 	}
 	
 	jsonData, _ := json.Marshal(data)
-	_, err := http.Post("https://oooo.serv00.net/add-url", 
+	client := &http.Client{Timeout: 10 * time.Second}
+	_, err := client.Post("https://oooo.serv00.net/add-url", 
 		"application/json", 
 		bytes.NewBuffer(jsonData))
 	
