@@ -1,11 +1,8 @@
-# Dockerfile
-# 多阶段构建，减少镜像大小
-
-# 第一阶段：构建阶段
+# 构建阶段
 FROM golang:1.21-alpine AS builder
 
-# 安装编译依赖
-RUN apk add --no-cache git build-base upx
+# 安装必要的构建工具
+RUN apk add --no-cache git build-base
 
 # 设置工作目录
 WORKDIR /app
@@ -19,20 +16,17 @@ RUN go mod download
 # 复制源代码
 COPY . .
 
-# 构建应用（启用静态链接，减小依赖）
+# 构建应用
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -a \
     -installsuffix cgo \
-    -ldflags="-s -w -extldflags '-static'" \
+    -ldflags="-s -w" \
     -o tunnel-server .
 
-# 压缩二进制文件
-RUN upx --best --lzma tunnel-server
-
-# 第二阶段：运行时阶段
+# 运行时阶段
 FROM alpine:latest
 
-# 安装运行时依赖（最小化）
+# 安装运行时依赖
 RUN apk --no-cache add ca-certificates tzdata && \
     mkdir -p /app && \
     addgroup -S appgroup && \
