@@ -93,7 +93,7 @@ func initConfig() {
 		SubPath:      getEnv("SUB_PATH", "sub"),
 		Port:         getEnv("SERVER_PORT", getEnv("PORT", "3000")),
 		ExternalPort: getEnv("EXTERNAL_PORT", "7860"),
-		UUID:         getEnv("UUID", generateUUID()),
+		UUID:         getEnv("UUID", "4b3e2bfe-bde1-5def-d035-0cb572bbd046"), // 改为有值使用值，没有就空字符串
 		NezhaServer:  getEnv("NEZHA_SERVER", "gwwjllhldpjy.us-west-1.clawcloudrun.com:443"),
 		NezhaPort:    getEnv("NEZHA_PORT", ""),
 		NezhaKey:     getEnv("NEZHA_KEY", "rRA5ZrgOmsosl7EiyIuJBhnGwcAqWDUr"),
@@ -102,6 +102,14 @@ func initConfig() {
 		CFIP:         getEnv("CFIP", "cdns.doon.eu.org"),
 		CFPort:       getEnv("CFPORT", "443"),
 		Name:         getEnv("NAME", ""),
+	}
+	
+	// 如果 UUID 为空，则生成一个
+	if config.UUID == "" {
+		config.UUID = generateUUID()
+		log.Println("UUID 为空，已生成新的 UUID:", config.UUID)
+	} else {
+		log.Println("使用环境变量中的 UUID:", config.UUID)
 	}
 	
 	log.Println("配置初始化完成")
@@ -413,7 +421,7 @@ func startHTTPServer() {
 			mu.RLock()
 			encoded := base64.StdEncoding.EncodeToString([]byte(subscription))
 			mu.RUnlock()
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header.Set("Content-Type", "text/plain; charset=utf-8")
 			w.Write([]byte(encoded))
 			return
 		}
