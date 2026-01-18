@@ -83,7 +83,7 @@ func main() {
 
 func initConfig() {
 	// 从环境变量获取UUID，如果为空则生成
-	uuidFromEnv := getEnv("UUID", "4b3e2bfe-bde1-5def-d035-0cb572bbd046")
+	uuidFromEnv := getEnv("UUID", "")
 	if uuidFromEnv == "" {
 		uuidFromEnv = generateUUID()
 		log.Printf("环境变量UUID为空，已自动生成UUID: %s", uuidFromEnv)
