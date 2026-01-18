@@ -1,22 +1,24 @@
 package main
 
+// 在文件顶部添加这个导入
 import (
-	"bytes"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"net/http/httputil"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
-	"sync"
-	"time"
+    "bytes"
+    "crypto/rand"
+    "crypto/tls"
+    "encoding/base64"
+    "encoding/json"
+    "fmt"
+    "io"
+    "log"
+    "net/http"
+    "net/http/httputil"
+    "os"
+    "os/exec"
+    "path/filepath"
+    "runtime"
+    "strings"
+    "sync"
+    "time"
 )
 
 // 移除 websocket 依赖，使用标准库实现
