@@ -17,9 +17,10 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
+
+// 移除 websocket 依赖，使用标准库实现
+// 因为 websocket 代理可能导致问题，简化实现
 
 // Config 配置结构体
 type Config struct {
@@ -41,81 +42,13 @@ type Config struct {
 	Name         string
 }
 
-// XrayConfig Xray配置文件结构
-type XrayConfig struct {
-	Log       LogConfig         `json:"log"`
-	DNS       DNSConfig         `json:"dns"`
-	Inbounds  []InboundConfig   `json:"inbounds"`
-	Outbounds []OutboundConfig  `json:"outbounds"`
-	Routing   RoutingConfig     `json:"routing"`
-}
-
-type LogConfig struct {
-	Access   string `json:"access"`
-	Error    string `json:"error"`
-	LogLevel string `json:"loglevel"`
-}
-
-type DNSConfig struct {
-	Servers       []string `json:"servers"`
-	QueryStrategy string   `json:"queryStrategy"`
-	DisableCache  bool     `json:"disableCache"`
-}
-
-type InboundConfig struct {
-	Port          int              `json:"port"`
-	Listen        string           `json:"listen,omitempty"`
-	Protocol      string           `json:"protocol"`
-	Settings      interface{}      `json:"settings"`
-	StreamSettings StreamSettings  `json:"streamSettings,omitempty"`
-	Sniffing      *SniffingConfig  `json:"sniffing,omitempty"`
-}
-
-type OutboundConfig struct {
-	Protocol string      `json:"protocol"`
-	Tag      string      `json:"tag"`
-	Settings interface{} `json:"settings"`
-}
-
-type RoutingConfig struct {
-	DomainStrategy string        `json:"domainStrategy"`
-	Rules          []interface{} `json:"rules"`
-}
-
-type Client struct {
-	ID       string `json:"id,omitempty"`
-	Flow     string `json:"flow,omitempty"`
-	Level    int    `json:"level,omitempty"`
-	AlterID  int    `json:"alterId,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
-type StreamSettings struct {
-	Network    string        `json:"network"`
-	Security   string        `json:"security,omitempty"`
-	WSSettings *WSSettings   `json:"wsSettings,omitempty"`
-}
-
-type WSSettings struct {
-	Path string `json:"path"`
-}
-
-type SniffingConfig struct {
-	Enabled      bool     `json:"enabled"`
-	DestOverride []string `json:"destOverride"`
-	MetadataOnly bool     `json:"metadataOnly"`
-}
-
 // 全局变量
 var (
-	config        Config
-	files         = make(map[string]string)
-	proxy         *httputil.ReverseProxy
-	upgrader      = websocket.Upgrader{}
-	mu            sync.RWMutex
-	nodesCache    []string
-	argoDomain    string
-	subscription  string
+	config       Config
+	files        = make(map[string]string)
+	mu           sync.RWMutex
+	subscription string
+	proxy        *httputil.ReverseProxy
 )
 
 func main() {
@@ -138,8 +71,8 @@ func main() {
 	// 生成配置文件
 	generateXrayConfig()
 	
-	// 启动代理服务器
-	go startProxyServer()
+	// 初始化代理
+	initProxy()
 	
 	// 启动HTTP服务器
 	go startHTTPServer()
@@ -160,7 +93,7 @@ func initConfig() {
 		SubPath:      getEnv("SUB_PATH", "sub"),
 		Port:         getEnv("SERVER_PORT", getEnv("PORT", "3000")),
 		ExternalPort: getEnv("EXTERNAL_PORT", "7860"),
-		UUID:         getEnv("UUID", "4b3e2bfe-bde1-5def-d035-0cb572bbd046"),
+		UUID:         getEnv("UUID", generateUUID()),
 		NezhaServer:  getEnv("NEZHA_SERVER", "gwwjllhldpjy.us-west-1.clawcloudrun.com:443"),
 		NezhaPort:    getEnv("NEZHA_PORT", ""),
 		NezhaKey:     getEnv("NEZHA_KEY", "rRA5ZrgOmsosl7EiyIuJBhnGwcAqWDUr"),
@@ -172,6 +105,22 @@ func initConfig() {
 	}
 	
 	log.Println("配置初始化完成")
+}
+
+func generateUUID() string {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		// 如果随机生成失败，使用固定值
+		return "4b3e2bfe-bde1-5def-d035-0cb572bbd046"
+	}
+	
+	// 设置版本号 (4)
+	b[6] = (b[6] & 0x0f) | 0x40
+	// 设置变体 (10)
+	b[8] = (b[8] & 0x3f) | 0x80
+	
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 }
 
 func getEnv(key, defaultValue string) string {
@@ -257,37 +206,47 @@ func deleteNodes() {
 	
 	// 发送删除请求
 	jsonData, _ := json.Marshal(map[string][]string{"nodes": nodes})
-	_, err = http.Post(config.UploadURL+"/api/delete-nodes", 
-		"application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", config.UploadURL+"/api/delete-nodes", 
+		bytes.NewBuffer(jsonData))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	
+	client := &http.Client{Timeout: 10 * time.Second}
+	_, err = client.Do(req)
 	if err != nil {
 		log.Printf("删除节点失败: %v", err)
 	}
 }
 
 func generateXrayConfig() {
-	config := XrayConfig{
-		Log: LogConfig{
-			Access:   "/dev/null",
-			Error:    "/dev/null",
-			LogLevel: "none",
+	xrayConfig := map[string]interface{}{
+		"log": map[string]interface{}{
+			"access":   "/dev/null",
+			"error":    "/dev/null",
+			"loglevel": "none",
 		},
-		DNS: DNSConfig{
-			Servers: []string{
+		"dns": map[string]interface{}{
+			"servers": []string{
 				"https+local://8.8.8.8/dns-query",
 				"https+local://1.1.1.1/dns-query",
 				"8.8.8.8",
 				"1.1.1.1",
 			},
-			QueryStrategy: "UseIP",
-			DisableCache:  false,
+			"queryStrategy": "UseIP",
+			"disableCache":  false,
 		},
-		Inbounds: []InboundConfig{
+		"inbounds": []map[string]interface{}{
 			{
-				Port:     3001,
-				Protocol: "vless",
-				Settings: map[string]interface{}{
-					"clients": []Client{
-						{ID: config.UUID, Flow: "xtls-rprx-vision"},
+				"port": 3001,
+				"protocol": "vless",
+				"settings": map[string]interface{}{
+					"clients": []map[string]interface{}{
+						{
+							"id":   config.UUID,
+							"flow": "xtls-rprx-vision",
+						},
 					},
 					"decryption": "none",
 					"fallbacks": []map[string]interface{}{
@@ -297,127 +256,128 @@ func generateXrayConfig() {
 						{"path": "/trojan-argo", "dest": 3005},
 					},
 				},
-				StreamSettings: StreamSettings{
-					Network: "tcp",
+				"streamSettings": map[string]interface{}{
+					"network": "tcp",
 				},
 			},
 			{
-				Port:     3002,
-				Listen:   "127.0.0.1",
-				Protocol: "vless",
-				Settings: map[string]interface{}{
-					"clients": []Client{
-						{ID: config.UUID},
+				"port":     3002,
+				"listen":   "127.0.0.1",
+				"protocol": "vless",
+				"settings": map[string]interface{}{
+					"clients": []map[string]interface{}{
+						{"id": config.UUID},
 					},
 					"decryption": "none",
 				},
-				StreamSettings: StreamSettings{
-					Network:  "tcp",
-					Security: "none",
+				"streamSettings": map[string]interface{}{
+					"network":  "tcp",
+					"security": "none",
 				},
 			},
 			{
-				Port:     3003,
-				Listen:   "127.0.0.1",
-				Protocol: "vless",
-				Settings: map[string]interface{}{
-					"clients": []Client{
-						{ID: config.UUID, Level: 0},
+				"port":     3003,
+				"listen":   "127.0.0.1",
+				"protocol": "vless",
+				"settings": map[string]interface{}{
+					"clients": []map[string]interface{}{
+						{"id": config.UUID, "level": 0},
 					},
 					"decryption": "none",
 				},
-				StreamSettings: StreamSettings{
-					Network:  "ws",
-					Security: "none",
-					WSSettings: &WSSettings{
-						Path: "/vless-argo",
+				"streamSettings": map[string]interface{}{
+					"network":  "ws",
+					"security": "none",
+					"wsSettings": map[string]interface{}{
+						"path": "/vless-argo",
 					},
 				},
-				Sniffing: &SniffingConfig{
-					Enabled:      true,
-					DestOverride: []string{"http", "tls", "quic"},
-					MetadataOnly: false,
+				"sniffing": map[string]interface{}{
+					"enabled":      true,
+					"destOverride": []string{"http", "tls", "quic"},
+					"metadataOnly": false,
 				},
 			},
 			{
-				Port:     3004,
-				Listen:   "127.0.0.1",
-				Protocol: "vmess",
-				Settings: map[string]interface{}{
-					"clients": []Client{
-						{ID: config.UUID, AlterID: 0},
+				"port":     3004,
+				"listen":   "127.0.0.1",
+				"protocol": "vmess",
+				"settings": map[string]interface{}{
+					"clients": []map[string]interface{}{
+						{"id": config.UUID, "alterId": 0},
 					},
 				},
-				StreamSettings: StreamSettings{
-					Network: "ws",
-					WSSettings: &WSSettings{
-						Path: "/vmess-argo",
+				"streamSettings": map[string]interface{}{
+					"network": "ws",
+					"wsSettings": map[string]interface{}{
+						"path": "/vmess-argo",
 					},
 				},
-				Sniffing: &SniffingConfig{
-					Enabled:      true,
-					DestOverride: []string{"http", "tls", "quic"},
-					MetadataOnly: false,
+				"sniffing": map[string]interface{}{
+					"enabled":      true,
+					"destOverride": []string{"http", "tls", "quic"},
+					"metadataOnly": false,
 				},
 			},
 			{
-				Port:     3005,
-				Listen:   "127.0.0.1",
-				Protocol: "trojan",
-				Settings: map[string]interface{}{
-					"clients": []Client{
-						{Password: config.UUID},
+				"port":     3005,
+				"listen":   "127.0.0.1",
+				"protocol": "trojan",
+				"settings": map[string]interface{}{
+					"clients": []map[string]interface{}{
+						{"password": config.UUID},
 					},
 				},
-				StreamSettings: StreamSettings{
-					Network:  "ws",
-					Security: "none",
-					WSSettings: &WSSettings{
-						Path: "/trojan-argo",
+				"streamSettings": map[string]interface{}{
+					"network":  "ws",
+					"security": "none",
+					"wsSettings": map[string]interface{}{
+						"path": "/trojan-argo",
 					},
 				},
-				Sniffing: &SniffingConfig{
-					Enabled:      true,
-					DestOverride: []string{"http", "tls", "quic"},
-					MetadataOnly: false,
+				"sniffing": map[string]interface{}{
+					"enabled":      true,
+					"destOverride": []string{"http", "tls", "quic"},
+					"metadataOnly": false,
 				},
 			},
 		},
-		Outbounds: []OutboundConfig{
+		"outbounds": []map[string]interface{}{
 			{
-				Protocol: "freedom",
-				Tag:      "direct",
-				Settings: map[string]interface{}{
+				"protocol": "freedom",
+				"tag":      "direct",
+				"settings": map[string]interface{}{
 					"domainStrategy": "UseIP",
 				},
 			},
 			{
-				Protocol: "blackhole",
-				Tag:      "block",
-				Settings: map[string]interface{}{},
+				"protocol": "blackhole",
+				"tag":      "block",
+				"settings": map[string]interface{}{},
 			},
 		},
-		Routing: RoutingConfig{
-			DomainStrategy: "IPIfNonMatch",
-			Rules:          []interface{}{},
+		"routing": map[string]interface{}{
+			"domainStrategy": "IPIfNonMatch",
+			"rules":          []interface{}{},
 		},
 	}
 	
 	// 写入配置文件
-	data, err := json.MarshalIndent(config, "", "  ")
+	data, err := json.MarshalIndent(xrayConfig, "", "  ")
 	if err != nil {
-		log.Fatalf("生成配置文件失败: %v", err)
+		log.Printf("生成配置文件失败: %v", err)
+		return
 	}
 	
 	if err := os.WriteFile(files["config"], data, 0644); err != nil {
-		log.Fatalf("写入配置文件失败: %v", err)
+		log.Printf("写入配置文件失败: %v", err)
+		return
 	}
 	
 	log.Println("Xray配置文件生成完成")
 }
 
-func startProxyServer() {
-	// 创建反向代理
+func initProxy() {
 	proxy = &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			path := req.URL.Path
@@ -440,104 +400,16 @@ func startProxyServer() {
 			req.Host = req.URL.Host
 		},
 	}
-	
-	// WebSocket处理器
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// 检查是否为WebSocket升级请求
-		if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
-			handleWebSocket(w, r)
-			return
-		}
-		
-		// 普通HTTP请求
-		proxy.ServeHTTP(w, r)
-	})
-	
-	log.Printf("代理服务器启动在端口: %s", config.ExternalPort)
-	if err := http.ListenAndServe(":"+config.ExternalPort, nil); err != nil {
-		log.Fatalf("代理服务器启动失败: %v", err)
-	}
-}
-
-func handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	target := "localhost:" + config.Port
-	
-	if strings.HasPrefix(path, "/vless-argo") || 
-	   strings.HasPrefix(path, "/vmess-argo") || 
-	   strings.HasPrefix(path, "/trojan-argo") {
-		target = "localhost:3001"
-	}
-	
-	// 连接目标WebSocket
-	dialer := websocket.Dialer{}
-	targetURL := "ws://" + target + r.URL.Path
-	connBackend, _, err := dialer.Dial(targetURL, r.Header)
-	if err != nil {
-		log.Printf("连接目标WebSocket失败: %v", err)
-		http.Error(w, "无法连接后端", http.StatusBadGateway)
-		return
-	}
-	defer connBackend.Close()
-	
-	// 升级客户端连接
-	connClient, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("升级WebSocket失败: %v", err)
-		return
-	}
-	defer connClient.Close()
-	
-	// 双向转发
-	var wg sync.WaitGroup
-	wg.Add(2)
-	
-	// 客户端到后端
-	go func() {
-		defer wg.Done()
-		for {
-			messageType, message, err := connClient.ReadMessage()
-			if err != nil {
-				break
-			}
-			if err := connBackend.WriteMessage(messageType, message); err != nil {
-				break
-			}
-		}
-	}()
-	
-	// 后端到客户端
-	go func() {
-		defer wg.Done()
-		for {
-			messageType, message, err := connBackend.ReadMessage()
-			if err != nil {
-				break
-			}
-			if err := connClient.WriteMessage(messageType, message); err != nil {
-				break
-			}
-		}
-	}()
-	
-	wg.Wait()
 }
 
 func startHTTPServer() {
-	// 根路径处理器
+	// 代理服务器
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			// 检查index.html文件
-			if _, err := os.Stat("index.html"); err == nil {
-				http.ServeFile(w, r, "index.html")
-			} else {
-				w.Write([]byte("Hello world!"))
-			}
-			return
-		}
+		// 特殊路径处理
+		path := r.URL.Path
 		
-		// 订阅路径处理器
-		if r.URL.Path == "/"+config.SubPath {
+		// 如果是订阅路径
+		if path == "/"+config.SubPath || path == "/"+config.SubPath+"/" {
 			mu.RLock()
 			encoded := base64.StdEncoding.EncodeToString([]byte(subscription))
 			mu.RUnlock()
@@ -546,13 +418,35 @@ func startHTTPServer() {
 			return
 		}
 		
-		// 其他路径返回404
-		http.NotFound(w, r)
+		// 根路径
+		if path == "/" {
+			// 检查index.html文件
+			if _, err := os.Stat("index.html"); err == nil {
+				http.ServeFile(w, r, "index.html")
+			} else if _, err := os.Stat("/app/index.html"); err == nil {
+				http.ServeFile(w, r, "/app/index.html")
+			} else {
+				w.Write([]byte("Hello world!"))
+			}
+			return
+		}
+		
+		// 代理其他请求
+		proxy.ServeHTTP(w, r)
 	})
 	
-	log.Printf("HTTP服务启动在端口: %s", config.Port)
+	// 启动外部端口代理
+	go func() {
+		log.Printf("外部代理服务启动在端口: %s", config.ExternalPort)
+		if err := http.ListenAndServe(":"+config.ExternalPort, nil); err != nil {
+			log.Printf("外部代理服务启动失败: %v", err)
+		}
+	}()
+	
+	// 启动内部HTTP服务
+	log.Printf("内部HTTP服务启动在端口: %s", config.Port)
 	if err := http.ListenAndServe(":"+config.Port, nil); err != nil {
-		log.Printf("HTTP服务启动失败: %v", err)
+		log.Printf("内部HTTP服务启动失败: %v", err)
 	}
 }
 
@@ -704,7 +598,7 @@ func downloadFiles() {
 
 func getArchitecture() string {
 	arch := runtime.GOARCH
-	if arch == "arm" || arch == "arm64" {
+	if arch == "arm" || arch == "arm64" || arch == "aarch64" {
 		return "arm"
 	}
 	return "amd"
@@ -894,7 +788,7 @@ func runCloudflared() {
 func extractDomains() {
 	// 如果配置了固定域名
 	if config.ArgoAuth != "" && config.ArgoDomain != "" {
-		argoDomain = config.ArgoDomain
+		argoDomain := config.ArgoDomain
 		log.Printf("使用固定域名: %s", argoDomain)
 		generateLinks(argoDomain)
 		return
@@ -924,7 +818,7 @@ func extractDomains() {
 					end = len(line) - start
 				}
 				url := line[start : start+end]
-				argoDomain = strings.TrimPrefix(strings.TrimPrefix(url, "https://"), "http://")
+				argoDomain := strings.TrimPrefix(strings.TrimPrefix(url, "https://"), "http://")
 				argoDomain = strings.TrimSuffix(argoDomain, "/")
 				log.Printf("找到临时域名: %s", argoDomain)
 				generateLinks(argoDomain)
@@ -1035,7 +929,7 @@ func getISP() string {
 		if err := json.NewDecoder(resp.Body).Decode(&data); err == nil {
 			if country, ok := data["country_code"].(string); ok {
 				if org, ok := data["org"].(string); ok {
-					return country + "_" + org
+					return strings.ReplaceAll(country+"_"+org, " ", "_")
 				}
 			}
 		}
@@ -1050,7 +944,7 @@ func getISP() string {
 			if status, ok := data["status"].(string); ok && status == "success" {
 				if country, ok := data["countryCode"].(string); ok {
 					if org, ok := data["org"].(string); ok {
-						return country + "_" + org
+						return strings.ReplaceAll(country+"_"+org, " ", "_")
 					}
 				}
 			}
@@ -1073,8 +967,15 @@ func uploadNodes() {
 		}
 		
 		data, _ := json.Marshal(jsonData)
-		resp, err := http.Post(config.UploadURL+"/api/add-subscriptions", 
-			"application/json", bytes.NewBuffer(data))
+		req, err := http.NewRequest("POST", config.UploadURL+"/api/add-subscriptions", 
+			bytes.NewBuffer(data))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
 		
 		if err == nil && resp.StatusCode == 200 {
 			log.Println("订阅上传成功")
@@ -1109,8 +1010,15 @@ func uploadNodes() {
 		}
 		
 		jsonData, _ := json.Marshal(map[string][]string{"nodes": nodes})
-		resp, err := http.Post(config.UploadURL+"/api/add-nodes", 
-			"application/json", bytes.NewBuffer(jsonData))
+		req, err := http.NewRequest("POST", config.UploadURL+"/api/add-nodes", 
+			bytes.NewBuffer(jsonData))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
 		
 		if err == nil && resp.StatusCode == 200 {
 			log.Println("节点上传成功")
@@ -1127,8 +1035,16 @@ func addVisitTask() {
 	jsonData := map[string]string{"url": config.ProjectURL}
 	data, _ := json.Marshal(jsonData)
 	
-	resp, err := http.Post("https://oooo.serv00.net/add-url", 
-		"application/json", bytes.NewBuffer(data))
+	req, err := http.NewRequest("POST", "https://oooo.serv00.net/add-url", 
+		bytes.NewBuffer(data))
+	if err != nil {
+		log.Printf("创建请求失败: %v", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
 	
 	if err == nil && resp.StatusCode == 200 {
 		log.Println("自动访问任务添加成功")
