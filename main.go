@@ -19,9 +19,6 @@ import (
 	"time"
 )
 
-// 移除 websocket 依赖，使用标准库实现
-// 因为 websocket 代理可能导致问题，简化实现
-
 // Config 配置结构体
 type Config struct {
 	UploadURL    string
@@ -31,7 +28,7 @@ type Config struct {
 	SubPath      string
 	Port         string
 	ExternalPort string
-	UUID         string
+	UUID         string  // 如果环境变量为空，将自动生成
 	NezhaServer  string
 	NezhaPort    string
 	NezhaKey     string
@@ -85,6 +82,15 @@ func main() {
 }
 
 func initConfig() {
+	// 从环境变量获取UUID，如果为空则生成
+	uuidFromEnv := getEnv("UUID", "4b3e2bfe-bde1-5def-d035-0cb572bbd046")
+	if uuidFromEnv == "" {
+		uuidFromEnv = generateUUID()
+		log.Printf("环境变量UUID为空，已自动生成UUID: %s", uuidFromEnv)
+	} else {
+		log.Printf("使用环境变量中的UUID: %s", uuidFromEnv)
+	}
+	
 	config = Config{
 		UploadURL:    getEnv("UPLOAD_URL", ""),
 		ProjectURL:   getEnv("PROJECT_URL", ""),
@@ -93,34 +99,29 @@ func initConfig() {
 		SubPath:      getEnv("SUB_PATH", "sub"),
 		Port:         getEnv("SERVER_PORT", getEnv("PORT", "3000")),
 		ExternalPort: getEnv("EXTERNAL_PORT", "7860"),
-		UUID:         getEnv("UUID", "4b3e2bfe-bde1-5def-d035-0cb572bbd046"), // 改为有值使用值，没有就空字符串
-		NezhaServer:  getEnv("NEZHA_SERVER", "gwwjllhldpjy.us-west-1.clawcloudrun.com:443"),
+		UUID:         uuidFromEnv,
+		NezhaServer:  getEnv("NEZHA_SERVER", ""),
 		NezhaPort:    getEnv("NEZHA_PORT", ""),
-		NezhaKey:     getEnv("NEZHA_KEY", "rRA5ZrgOmsosl7EiyIuJBhnGwcAqWDUr"),
-		ArgoDomain:   getEnv("ARGO_DOMAIN", "hug3.bgxzg.indevs.in"),
-		ArgoAuth:     getEnv("ARGO_AUTH", "eyJhIjoiMzZhYzM1MmM5YmY2N2M1MzE0ZGJmYmE3MzFmMmIzMTkiLCJ0IjoiMWFhZmZiYmMtMTViZi00M2U0LTk1ZTUtZDdiMGJlODYxOTViIiwicyI6Ik9UUXdaV1EyTTJNdFpqUmhNUzAwWW1Sa0xUaG1ZVEl0WkdVeE5tTmpOR1F5WldaaiJ9"),
+		NezhaKey:     getEnv("NEZHA_KEY", ""),
+		ArgoDomain:   getEnv("ARGO_DOMAIN", ""),
+		ArgoAuth:     getEnv("ARGO_AUTH", ""),
 		CFIP:         getEnv("CFIP", "cdns.doon.eu.org"),
 		CFPort:       getEnv("CFPORT", "443"),
 		Name:         getEnv("NAME", ""),
 	}
 	
-	// 如果 UUID 为空，则生成一个
-	if config.UUID == "" {
-		config.UUID = generateUUID()
-		log.Println("UUID 为空，已生成新的 UUID:", config.UUID)
-	} else {
-		log.Println("使用环境变量中的 UUID:", config.UUID)
-	}
-	
 	log.Println("配置初始化完成")
+	log.Printf("最终使用的UUID: %s", config.UUID)
 }
 
+// 生成UUID v4
 func generateUUID() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
-		// 如果随机生成失败，使用固定值
-		return "4b3e2bfe-bde1-5def-d035-0cb572bbd046"
+		log.Printf("生成UUID时出错: %v", err)
+		// 如果随机生成失败，使用基于时间的UUID
+		return generateTimeBasedUUID()
 	}
 	
 	// 设置版本号 (4)
@@ -129,6 +130,20 @@ func generateUUID() string {
 	b[8] = (b[8] & 0x3f) | 0x80
 	
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+}
+
+// 基于时间的UUID生成器（备用）
+func generateTimeBasedUUID() string {
+	now := time.Now().UnixNano()
+	randomPart := make([]byte, 8)
+	rand.Read(randomPart)
+	
+	return fmt.Sprintf("%016x-%04x-%04x-%04x-%012x",
+		now,
+		(now>>48)&0xffff,
+		(now>>32)&0xffff,
+		(now>>16)&0xffff,
+		randomPart)
 }
 
 func getEnv(key, defaultValue string) string {
@@ -421,7 +436,7 @@ func startHTTPServer() {
 			mu.RLock()
 			encoded := base64.StdEncoding.EncodeToString([]byte(subscription))
 			mu.RUnlock()
-			w.Header.Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.Write([]byte(encoded))
 			return
 		}
