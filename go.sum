@@ -1,8 +1,4 @@
-github.com/gorilla/websocket v1.5.3 h1:Y+uXFgG0nghwNn9yL4n3rNoHkE5mt+S8Szsa7LW+J5M=
-github.com/gorilla/websocket v1.5.3/go.mod h1:YDmF1gJDu3t6s91BwLk4O0S0mCF+6B3O42sNbfmYfSM=
-golang.org/x/net v0.25.0 h1:a8sEuh/lxy9bVd5G4Fg1wOZ3b2cFZ3h6sHfv4Z9/8lg=
-golang.org/x/net v0.25.0/go.mod h1:rqtE6A5idqALdZ/9tA5CgF9jR/ufq1e8KtZ6mCq85s=
-golang.org/x/sys v0.20.0 h1:9cUFjVZPPJq2yBK8k3hM1e82ZhJ/fKl6uT2QSTGzZkU=
-golang.org/x/sys v0.20.0/go.mod h1:ljdjCHNEJgKtMdD2K8v6s+9sV0M6ZbyX0tJ2FZ7Ht8M=
-golang.org/x/text v0.15.0 h1:ScG57uWtZ1o+Y3q7AKXeCsT8+4jWQaQcxi6pM6++8qM=
-golang.org/x/text v0.15.0/go.mod h1:3a3JmsH1BJWQgQ4h8N+oBj1qBmJF7LudEcCwzV1q/ZU=
+golang.org/x/crypto v0.22.0 h1:g1v0xeRhjcugydODzvb3mEM9SQ0HGp9s/nh3COQ/C30=
+golang.org/x/crypto v0.22.0/go.mod h1:vr6Su+7cTlO45qkww3VDJlzDn0ctJvRgYbC2NvXHt+M=
+golang.org/x/sys v0.19.0 h1:q5f1RH2jigJ1MoAWp2KTp3gm5zAGFUTarQZ5U386+4o=
+golang.org/x/sys v0.19.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
