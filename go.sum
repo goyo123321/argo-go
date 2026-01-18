@@ -1,8 +1,8 @@
-github.com/gorilla/websocket v1.5.1 h1:gmztn0JnHVt9JmhGg1LpQoU0P2WbQm8h6bqD1E6K5wY=
-github.com/gorilla/websocket v1.5.1/go.mod h1:x3kM2JMyaluk02fnUJpQuwD2dCS5NDG2ZHL0uE0tcaY=
-golang.org/x/net v0.17.0 h1:zTwKpTd2XuCqf8huc6Fo2hPSGur+YLhLPOc8CgqLqLg=
-golang.org/x/net v0.17.0/go.mod h1:/yUs6M4y4sLZHdFJb1wQ2i5p5+aMVFxQIk+6QJ2H2G4=
-golang.org/x/sys v0.13.0 h1:Af8nKPmuFypiUBjVoU9V20FiaFXOcuZI21p0ycVYYGE=
-golang.org/x/sys v0.13.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/text v0.13.0 h1:ablQoSUd0tRdKxZewP80B+BaqeKJuVhuRxj/dkrun3k=
-golang.org/x/text v0.13.0/go.mod h1:TvPlkZtksWOMenz7fk1KU9YqOhFmt2rFw+JLS0K0pOM=
+github.com/gorilla/websocket v1.5.3 h1:Y+uXFgG0nghwNn9yL4n3rNoHkE5mt+S8Szsa7LW+J5M=
+github.com/gorilla/websocket v1.5.3/go.mod h1:YDmF1gJDu3t6s91BwLk4O0S0mCF+6B3O42sNbfmYfSM=
+golang.org/x/net v0.25.0 h1:a8sEuh/lxy9bVd5G4Fg1wOZ3b2cFZ3h6sHfv4Z9/8lg=
+golang.org/x/net v0.25.0/go.mod h1:rqtE6A5idqALdZ/9tA5CgF9jR/ufq1e8KtZ6mCq85s=
+golang.org/x/sys v0.20.0 h1:9cUFjVZPPJq2yBK8k3hM1e82ZhJ/fKl6uT2QSTGzZkU=
+golang.org/x/sys v0.20.0/go.mod h1:ljdjCHNEJgKtMdD2K8v6s+9sV0M6ZbyX0tJ2FZ7Ht8M=
+golang.org/x/text v0.15.0 h1:ScG57uWtZ1o+Y3q7AKXeCsT8+4jWQaQcxi6pM6++8qM=
+golang.org/x/text v0.15.0/go.mod h1:3a3JmsH1BJWQgQ4h8N+oBj1qBmJF7LudEcCwzV1q/ZU=
