@@ -13,6 +13,33 @@ Go 代理服务器
 · 🔑 智能 UUID：自动生成 UUID，支持环境变量覆盖
 · 🛡️ 安全可靠：非 root 用户运行，完善的错误处理
 
+⚙️ 环境变量配置
+
+所有配置都通过环境变量进行，以下是完整的配置表格：
+
+环境变量 类型 默认值 说明 必需
+基础配置    
+UUID 字符串 (自动生成) Xray 用户 UUID，留空则自动生成 否
+SUB_PATH 字符串 sub 订阅链接访问路径 否
+PORT 数字 3000 HTTP 服务端口 否
+EXTERNAL_PORT 数字 7860 外部代理端口和 Argo 端口 否
+FILE_PATH 字符串 ./tmp 临时文件存储目录路径 否
+Cloudflare Argo 配置    
+ARGO_DOMAIN 字符串 (无) Cloudflare Argo 隧道域名 否
+ARGO_AUTH 字符串 (无) Argo 隧道认证信息 (Token 或 Json) 否
+哪吒监控配置    
+NEZHA_SERVER 字符串 (无) 哪吒监控服务器地址 否
+NEZHA_PORT 字符串 (无) 哪吒 v0 监控服务器端口 否
+NEZHA_KEY 字符串 (无) 哪吒监控客户端密钥 否
+CDN 配置    
+CFIP 字符串 cdns.doon.eu.org CDN 回源 IP 地址 否
+CFPORT 字符串 443 CDN 回源端口 否
+节点配置    
+NAME 字符串 (无) 节点名称前缀，例如：US-01 否
+UPLOAD_URL 字符串 (无) 节点或订阅自动上传地址 否
+PROJECT_URL 字符串 (无) 项目访问地址，用于生成订阅链接 否
+AUTO_ACCESS 布尔值 false 是否自动访问项目URL保持活跃 否
+
 📦 快速开始
 
 使用 Docker Compose（推荐）
@@ -26,10 +53,7 @@ cd proxy-server
 cp .env.example .env
 
 # 3. 编辑 .env 文件，配置你的参数
-# 主要配置项：
-# UUID - 留空则自动生成
-# ARGO_AUTH - Argo 隧道认证信息
-# NEZHA_KEY - 哪吒监控密钥
+nano .env
 
 # 4. 启动服务
 docker-compose up -d
@@ -57,85 +81,36 @@ docker run -d \
   -e ARGO_AUTH="your-argo-token" \
   -e NEZHA_SERVER="nezha.cc:5555" \
   -e NEZHA_KEY="your-nezha-key" \
-  ghcr.io/your-username/proxy-server:latest
+  ghcr.io/goyo123321/app-go:latest
 ```
 
-手动构建运行
+.env 文件示例
 
-```bash
-# 1. 安装 Go 环境（1.21+）
-# 从 https://golang.org/dl/ 下载安装
+```env
+# 基础配置
+UUID=4b3e2bfe-bde1-5def-d035-0cb572bbd046
+SUB_PATH=sub
+PORT=3000
+EXTERNAL_PORT=7860
+FILE_PATH=/tmp/app
 
-# 2. 克隆项目
-git clone <your-repo-url>
-cd proxy-server
+# Cloudflare Argo 配置
+ARGO_DOMAIN=your-domain.com
+ARGO_AUTH=your-argo-token-here
 
-# 3. 设置环境变量
-export UUID="your-uuid-here"
-export ARGO_AUTH="your-argo-token"
+# 哪吒监控配置
+NEZHA_SERVER=nezha.cc:5555
+NEZHA_KEY=your-secret-key-here
 
-# 4. 运行
-go run main.go
+# CDN 配置
+CFIP=cdns.doon.eu.org
+CFPORT=443
 
-# 或编译后运行
-go build -o proxy-server main.go
-./proxy-server
-```
-
-⚙️ 环境变量配置
-
-所有配置都通过环境变量进行，以下是最重要的配置项：
-
-环境变量 说明 默认值 是否必需
-UUID Xray 用户 UUID 自动生成 ❌
-ARGO_DOMAIN Argo 隧道域名 无 ❌
-ARGO_AUTH Argo 认证信息（Token 或 JSON） 无 ❌
-NEZHA_SERVER 哪吒监控服务器地址 无 ❌
-NEZHA_KEY 哪吒监控客户端密钥 无 ❌
-NEZHA_PORT 哪吒监控服务器端口 无 ❌
-CFIP CDN 回源 IP 地址 cdns.doon.eu.org ❌
-CFPORT CDN 回源端口 443 ❌
-NAME 节点名称前缀 无 ❌
-UPLOAD_URL 节点上传地址 无 ❌
-PROJECT_URL 项目访问地址 无 ❌
-SUB_PATH 订阅链接访问路径 sub ❌
-PORT HTTP 服务端口 3000 ❌
-EXTERNAL_PORT 外部代理端口 7860 ❌
-
-配置示例
-
-1. 基础配置（无 UUID，自动生成）
-
-```bash
-docker run -d \
-  -p 7860:7860 \
-  -p 3000:3000 \
-  proxy-server:latest
-```
-
-2. 使用固定 UUID
-
-```bash
-docker run -d \
-  -p 7860:7860 \
-  -p 3000:3000 \
-  -e UUID="4b3e2bfe-bde1-5def-d035-0cb572bbd046" \
-  proxy-server:latest
-```
-
-3. 完整配置
-
-```bash
-docker run -d \
-  -p 7860:7860 \
-  -p 3000:3000 \
-  -e UUID="your-uuid" \
-  -e ARGO_DOMAIN="your-domain.com" \
-  -e ARGO_AUTH="your-argo-token" \
-  -e NEZHA_SERVER="nezha.cc:5555" \
-  -e NEZHA_KEY="your-secret-key" \
-  -e NAME="US-01" \
-  proxy-server:latest
+# 节点配置
+NAME=US-01
+UPLOAD_URL=https://merge.xxx.com
+PROJECT_URL=https://your-project.herokuapp.com
+AUTO_ACCESS=true
 ```
 
 🔗 订阅链接
@@ -145,7 +120,7 @@ docker run -d \
 1. Web 访问
 
 ```
-http://你的域名或IP:7680/sub
+http://你的域名或IP:7860/sub
 ```
 
 2. 直接获取
@@ -166,64 +141,44 @@ curl http://localhost:7860/sub
 · VMESS 协议
 · Trojan 协议
 
-🛠️ 高级配置
+🛠️ 配置示例
 
-Cloudflare Argo 隧道
-
-使用 Token 连接
+场景 1：基本使用（自动生成 UUID）
 
 ```bash
-# 从 Cloudflare 面板获取 Token
--e ARGO_AUTH="your-argo-token-here"
+docker run -d \
+  -p 7860:7860 \
+  -p 3000:3000 \
+  proxy-server:latest
 ```
 
-使用 JSON 配置文件
+场景 2：使用固定 UUID
 
 ```bash
-# 将 JSON 配置作为环境变量传入
--e ARGO_AUTH='{"TunnelSecret":"...","TunnelID":"...","TunnelName":"..."}'
+docker run -d \
+  -p 7860:7860 \
+  -p 3000:3000 \
+  -e UUID="4b3e2bfe-bde1-5def-d035-0cb572bbd046" \
+  proxy-server:latest
 ```
 
-哪吒监控
-
-v1 版本（推荐）
+场景 3：完整配置
 
 ```bash
--e NEZHA_SERVER="nezha.cc:5555"
--e NEZHA_KEY="your-key-here"
-# NEZHA_PORT 留空
-```
-
-v0 版本
-
-```bash
--e NEZHA_SERVER="nezha.cc"
--e NEZHA_PORT="5555"
--e NEZHA_KEY="your-key-here"
-```
-
-节点上传
-
-如果需要将节点上传到 Merge-sub 项目：
-
-```bash
-# 设置上传地址
--e UPLOAD_URL="https://merge.xxx.com"
--e PROJECT_URL="https://your-domain.com"
-```
-
-📁 目录结构
-
-```
-proxy-server/
-├── main.go              # 主程序源码
-├── Dockerfile          # Docker 构建文件
-├── docker-compose.yml  # Docker Compose 配置
-├── go.mod             # Go 模块定义
-├── go.sum             # 依赖校验和
-├── .env.example       # 环境变量示例
-├── index.html         # 首页文件（可选）
-└── README.md          # 本文件
+docker run -d \
+  -p 7860:7860 \
+  -p 3000:3000 \
+  -e UUID="your-uuid" \
+  -e ARGO_DOMAIN="your-domain.com" \
+  -e ARGO_AUTH="your-argo-token" \
+  -e NEZHA_SERVER="nezha.cc:5555" \
+  -e NEZHA_KEY="your-secret-key" \
+  -e CFIP="cdn.example.com" \
+  -e CFPORT="8443" \
+  -e NAME="US-01" \
+  -e UPLOAD_URL="https://merge.example.com" \
+  -e AUTO_ACCESS="true" \
+  proxy-server:latest
 ```
 
 🐳 Docker 部署
@@ -253,18 +208,23 @@ services:
     environment:
       - UUID=${UUID:-}
       - ARGO_AUTH=${ARGO_AUTH:-}
+      - NEZHA_SERVER=${NEZHA_SERVER:-}
+      - NEZHA_KEY=${NEZHA_KEY:-}
     restart: unless-stopped
 ```
 
-持久化数据
+📁 目录结构
 
-如果需要保存订阅文件：
-
-```bash
-docker run -d \
-  -v ./data:/tmp/app \
-  -p 7860:7860 \
-  proxy-server:latest
+```
+proxy-server/
+├── main.go              # 主程序源码
+├── Dockerfile          # Docker 构建文件
+├── docker-compose.yml  # Docker Compose 配置
+├── go.mod             # Go 模块定义
+├── go.sum             # 依赖校验和
+├── .env.example       # 环境变量示例
+├── index.html         # 首页文件（可选）
+└── README.md          # 本文件
 ```
 
 🔍 监控与日志
@@ -288,7 +248,7 @@ docker logs --tail 100 -f proxy-server
 
 ```bash
 # 检查 HTTP 服务
-curl http://localhost:7860/
+curl http://localhost:3000/
 
 # 检查订阅服务
 curl http://localhost:7860/sub
@@ -301,46 +261,12 @@ docker inspect --format='{{.State.Health.Status}}' proxy-server
 
 常见问题
 
-1. 端口被占用
-
-```bash
-# 检查端口占用
-netstat -tlnp | grep :7860
-netstat -tlnp | grep :3000
-
-# 停止占用进程或修改端口
-export PORT=3001
-export EXTERNAL_PORT=7861
-```
-
-2. UUID 相关问题
-
-```bash
-# 查看当前使用的 UUID
-docker logs proxy-server | grep "UUID"
-
-# 重新生成 UUID（删除容器重新运行）
-docker rm -f proxy-server
-docker run -d -p 7860:7860 proxy-server:latest
-```
-
-3. Argo 隧道连接失败
-
-```bash
-# 检查日志
-docker logs proxy-server | grep -i "argo\|tunnel"
-
-# 验证 Token 是否正确
-# 确保 ARGO_AUTH 环境变量设置正确
-```
-
-4. 哪吒监控无法连接
-
-```bash
-# 检查服务器地址和密钥
-# 确保网络可以访问哪吒服务器
-# 检查防火墙设置
-```
+问题 可能原因 解决方案
+端口被占用 其他服务占用了相同端口 修改端口配置或停止占用进程
+UUID 无效 环境变量中的 UUID 格式错误 使用有效的 UUID 或留空自动生成
+Argo 隧道连接失败 Token 无效或网络问题 检查 Token 正确性和网络连接
+哪吒监控无法连接 服务器地址或密钥错误 检查服务器地址和密钥配置
+订阅链接无法访问 服务未启动或配置错误 检查日志确认服务状态
 
 日志级别
 
