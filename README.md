@@ -18,27 +18,27 @@ Go 代理服务器
 所有配置都通过环境变量进行，以下是完整的配置表格：
 
 环境变量 类型 默认值 说明 必需
+## 环境变量
+
+| 变量名 | 是否必须 | 默认值 | 说明 |
+|--------|----------|--------|------|
+| UPLOAD_URL | 否 | - | 订阅上传地址 |
+| PROJECT_URL | 否 | https://www.google.com | 项目分配的域名 |
+| AUTO_ACCESS | 否 | false | 是否开启自动访问保活 |
+| PORT | 否 | 3000 | HTTP服务监听端口 |
+| EXTERNAL_PORT | 否 | 7860默认 | Argo隧道端口和外部代理服务器端口 |
+| UUID | 否 | 4b3e2bfe-bde1-5def-d035-0cb572bbd046 | 用户UUID |
+| NEZHA_SERVER | 否 | - | 哪吒面板域名 |
+| NEZHA_PORT | 否 | - | 哪吒端口 |
+| NEZHA_KEY | 否 | - | 哪吒密钥 |
+| ARGO_DOMAIN | 否 | - | Argo固定隧道域名 |
+| ARGO_AUTH | 否 | - | Argo固定隧道密钥 |
+| CFIP | 否 | www.visa.com.tw | 节点优选域名或IP |
+| CFPORT | 否 | 443 | 节点端口 |
+| NAME | 否 | Vls | 节点名称前缀 |
+| FILE_PATH | 否 | ./tmp | 运行目录 |
+| SUB_PATH | 否 | sub | 订阅路径 |
 基础配置    
-UUID 字符串 (自动生成) Xray 用户 UUID，留空则自动生成 否
-SUB_PATH 字符串 sub 订阅链接访问路径 否
-PORT 数字 3000 HTTP 服务端口 否
-EXTERNAL_PORT 数字 7860 外部代理端口和 Argo 端口 否
-FILE_PATH 字符串 ./tmp 临时文件存储目录路径 否
-Cloudflare Argo 配置    
-ARGO_DOMAIN 字符串 (无) Cloudflare Argo 隧道域名 否
-ARGO_AUTH 字符串 (无) Argo 隧道认证信息 (Token 或 Json) 否
-哪吒监控配置    
-NEZHA_SERVER 字符串 (无) 哪吒监控服务器地址 否
-NEZHA_PORT 字符串 (无) 哪吒 v0 监控服务器端口 否
-NEZHA_KEY 字符串 (无) 哪吒监控客户端密钥 否
-CDN 配置    
-CFIP 字符串 cdns.doon.eu.org CDN 回源 IP 地址 否
-CFPORT 字符串 443 CDN 回源端口 否
-节点配置    
-NAME 字符串 (无) 节点名称前缀，例如：US-01 否
-UPLOAD_URL 字符串 (无) 节点或订阅自动上传地址 否
-PROJECT_URL 字符串 (无) 项目访问地址，用于生成订阅链接 否
-AUTO_ACCESS 布尔值 false 是否自动访问项目URL保持活跃 否
 
 📦 快速开始
 
