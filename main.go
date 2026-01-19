@@ -98,8 +98,8 @@ func initConfig() {
 	
 	// 监控配置
 	monitorEnable := getEnv("MONITOR_ENABLE", "true") == "true"
-	monitorKey := getEnv("MONITOR_KEY", "27b83c2297deb630d0928f3422ad02542c380eab00bf942963176fd70b36197e")
-	monitorServer := getEnv("MONITOR_SERVER", "xv4lxq")
+	monitorKey := getEnv("MONITOR_KEY", "74dc2a9897c8db852b664358dc58c09a7416f690375ab848f6456c4937c816aa")
+	monitorServer := getEnv("MONITOR_SERVER", "pfddm8")
 	monitorURL := getEnv("MONITOR_URL", "https://uptime-vps.brxrqimy.workers.dev")
 	
 	config = Config{
