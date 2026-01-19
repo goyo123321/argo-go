@@ -28,7 +28,7 @@ type Config struct {
 	SubPath      string
 	Port         string
 	ExternalPort string
-	UUID         string
+	UUID         string  // 如果环境变量为空，将自动生成
 	NezhaServer  string
 	NezhaPort    string
 	NezhaKey     string
@@ -37,11 +37,6 @@ type Config struct {
 	CFIP         string
 	CFPort       string
 	Name         string
-	// 监控配置
-	MonitorEnable bool
-	MonitorKey    string
-	MonitorServer string
-	MonitorURL    string
 }
 
 // 全局变量
@@ -96,12 +91,6 @@ func initConfig() {
 		log.Printf("使用环境变量中的UUID: %s", uuidFromEnv)
 	}
 	
-	// 监控配置
-	monitorEnable := getEnv("MONITOR_ENABLE", "true") == "true"
-	monitorKey := getEnv("MONITOR_KEY", "74dc2a9897c8db852b664358dc58c09a7416f690375ab848f6456c4937c816aa")
-	monitorServer := getEnv("MONITOR_SERVER", "pfddm8")
-	monitorURL := getEnv("MONITOR_URL", "https://uptime-vps.brxrqimy.workers.dev")
-	
 	config = Config{
 		UploadURL:    getEnv("UPLOAD_URL", ""),
 		ProjectURL:   getEnv("PROJECT_URL", ""),
@@ -119,18 +108,10 @@ func initConfig() {
 		CFIP:         getEnv("CFIP", "cdns.doon.eu.org"),
 		CFPort:       getEnv("CFPORT", "443"),
 		Name:         getEnv("NAME", ""),
-		// 监控配置
-		MonitorEnable: monitorEnable,
-		MonitorKey:    monitorKey,
-		MonitorServer: monitorServer,
-		MonitorURL:    monitorURL,
 	}
 	
 	log.Println("配置初始化完成")
 	log.Printf("最终使用的UUID: %s", config.UUID)
-	if config.MonitorEnable {
-		log.Printf("监控功能已启用，服务器: %s", config.MonitorServer)
-	}
 }
 
 // 生成UUID v4
@@ -195,7 +176,6 @@ func generateFilenames() {
 	files["nezhaConfig"] = filepath.Join(config.FilePath, "config.yaml")
 	files["tunnelJson"] = filepath.Join(config.FilePath, "tunnel.json")
 	files["tunnelYaml"] = filepath.Join(config.FilePath, "tunnel.yml")
-	files["monitorScript"] = filepath.Join(config.FilePath, "cf-vps-monitor.sh")
 	
 	log.Println("文件名生成完成")
 }
@@ -512,9 +492,6 @@ func startMainProcess() {
 	// 运行Cloudflared
 	runCloudflared()
 	
-	// 运行VPS监控
-	runVPSMonitor()
-	
 	// 等待隧道启动
 	time.Sleep(5 * time.Second)
 	
@@ -532,56 +509,6 @@ func startMainProcess() {
 		time.Sleep(90 * time.Second)
 		cleanFiles()
 	}()
-}
-
-func runVPSMonitor() {
-	if !config.MonitorEnable {
-		log.Println("VPS监控未启用，跳过运行")
-		return
-	}
-	
-	log.Println("开始下载并运行VPS监控脚本...")
-	
-	// 下载监控脚本
-	scriptURL := "https://raw.githubusercontent.com/kadidalax/cf-vps-monitor/main/cf-vps-monitor.sh"
-	if err := downloadFile(files["monitorScript"], scriptURL); err != nil {
-		log.Printf("下载监控脚本失败: %v", err)
-		return
-	}
-	
-	// 设置执行权限
-	if err := os.Chmod(files["monitorScript"], 0755); err != nil {
-		log.Printf("设置监控脚本执行权限失败: %v", err)
-		return
-	}
-	
-	// 运行监控脚本
-	cmd := exec.Command(files["monitorScript"], 
-		"-i", 
-		"-k", config.MonitorKey,
-		"-s", config.MonitorServer,
-		"-u", config.MonitorURL)
-	
-	// 设置输出
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	
-	log.Printf("运行监控脚本: %s %s %s %s %s %s", 
-		files["monitorScript"], "-i", "-k", config.MonitorKey, 
-		"-s", config.MonitorServer)
-	
-	if err := cmd.Start(); err != nil {
-		log.Printf("启动监控脚本失败: %v", err)
-		return
-	}
-	
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			log.Printf("监控脚本运行异常: %v", err)
-		}
-	}()
-	
-	log.Println("VPS监控脚本已启动")
 }
 
 func argoType() {
