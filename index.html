@@ -3,377 +3,355 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campus Paranormal Society Blog</title>
+    <title>World Health Organization (WHO)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Josefin+Sans:wght@300;400;600;700&family=Source+Sans+Pro:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-
-        :root {
-            --dark-bg: #0a0a14;
-            --card-bg: #1a1a2e;
-            --accent-color: #8a2be2;
-            --text-color: #f0f0f0;
-            --secondary-text: #b0b0c0;
-            --border-color: #33334d;
-        }
-
+        
         body {
-            font-family: 'Source Sans Pro', sans-serif;
-            background-color: var(--dark-bg);
-            color: var(--text-color);
+            background-color: #f5f9fc;
+            color: #333;
             line-height: 1.6;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(138, 43, 226, 0.05) 0%, transparent 20%),
-                radial-gradient(circle at 90% 80%, rgba(138, 43, 226, 0.05) 0%, transparent 20%);
-            min-height: 100vh;
         }
-
+        
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 20px;
         }
-
+        
         /* Header Styles */
         header {
-            padding: 30px 0;
-            border-bottom: 1px solid var(--border-color);
-            background-color: rgba(10, 10, 20, 0.9);
+            background: linear-gradient(to right, #0d4d9c, #0073a8);
+            color: white;
+            padding: 2rem 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .who-logo {
+            width: 100px;
+            height: 100px;
+            margin-right: 20px;
+            background-color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .who-logo i {
+            font-size: 50px;
+            color: #0d4d9c;
+        }
+        
+        .header-content h1 {
+            font-size: 2.8rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header-content p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        nav {
+            background-color: #005a8c;
+            padding: 0.8rem 0;
             position: sticky;
             top: 0;
             z-index: 100;
-            backdrop-filter: blur(10px);
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
         }
-
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .logo-icon {
-            color: var(--accent-color);
-            font-size: 2.5rem;
-        }
-
-        .logo-text h1 {
-            font-family: 'Creepster', cursive;
-            font-size: 2.2rem;
-            letter-spacing: 2px;
-            color: var(--accent-color);
-            text-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
-        }
-
-        .logo-text p {
-            font-family: 'Josefin Sans', sans-serif;
-            font-size: 0.9rem;
-            color: var(--secondary-text);
-            letter-spacing: 1px;
-        }
-
+        
         nav ul {
             display: flex;
+            justify-content: center;
             list-style: none;
-            gap: 30px;
+            flex-wrap: wrap;
         }
-
+        
+        nav li {
+            margin: 0 15px;
+        }
+        
         nav a {
-            color: var(--text-color);
+            color: white;
             text-decoration: none;
-            font-family: 'Josefin Sans', sans-serif;
             font-weight: 600;
             font-size: 1.1rem;
+            padding: 5px 10px;
+            border-radius: 4px;
             transition: all 0.3s ease;
-            position: relative;
         }
-
+        
         nav a:hover {
-            color: var(--accent-color);
+            background-color: rgba(255, 255, 255, 0.2);
         }
-
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background-color: var(--accent-color);
-            transition: width 0.3s ease;
-        }
-
-        nav a:hover::after {
-            width: 100%;
-        }
-
-        /* Main Content */
+        
+        /* Main Content Styles */
         .hero {
+            background: linear-gradient(rgba(13, 77, 156, 0.85), rgba(0, 115, 168, 0.85)), url('https://images.unsplash.com/photo-1586773860418-dc22f8b874bc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 4rem 2rem;
             text-align: center;
-            padding: 60px 0 40px;
-            position: relative;
+            margin-bottom: 3rem;
+            border-radius: 0 0 20px 20px;
         }
-
+        
         .hero h2 {
-            font-family: 'Josefin Sans', sans-serif;
-            font-size: 3rem;
-            margin-bottom: 15px;
-            color: var(--accent-color);
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
         }
-
+        
         .hero p {
             font-size: 1.2rem;
             max-width: 800px;
-            margin: 0 auto 30px;
-            color: var(--secondary-text);
+            margin: 0 auto 2rem;
         }
-
-        .cta-button {
+        
+        .btn {
             display: inline-block;
-            background-color: var(--accent-color);
+            background-color: #ff9900;
             color: white;
-            padding: 12px 30px;
+            padding: 12px 28px;
             border-radius: 30px;
             text-decoration: none;
-            font-family: 'Josefin Sans', sans-serif;
             font-weight: 600;
             font-size: 1.1rem;
             transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(138, 43, 226, 0.3);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
-
-        .cta-button:hover {
-            background-color: #9b42f5;
+        
+        .btn:hover {
+            background-color: #e68a00;
             transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(138, 43, 226, 0.4);
         }
-
-        .section-title {
-            font-family: 'Josefin Sans', sans-serif;
-            font-size: 2.2rem;
+        
+        section {
+            margin-bottom: 3rem;
+            background-color: white;
+            padding: 2.5rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        section h2 {
+            color: #0d4d9c;
+            border-bottom: 3px solid #ff9900;
+            padding-bottom: 10px;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+        
+        .mission-statement {
+            background-color: #e9f5ff;
+            border-left: 5px solid #0d4d9c;
+            padding: 1.5rem;
+            font-style: italic;
+            margin: 1.5rem 0;
+            font-size: 1.2rem;
+        }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 2rem;
+        }
+        
+        .card {
+            background-color: #f0f8ff;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+            border: 1px solid #d1e7ff;
+        }
+        
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-icon {
+            background-color: #0d4d9c;
+            color: white;
+            padding: 1.5rem;
             text-align: center;
-            margin: 50px 0 30px;
-            color: var(--accent-color);
-            position: relative;
+            font-size: 2.5rem;
         }
-
-        .section-title::after {
+        
+        .card-content {
+            padding: 1.5rem;
+        }
+        
+        .card-content h3 {
+            color: #0d4d9c;
+            margin-bottom: 1rem;
+        }
+        
+        /* Timeline for History */
+        .timeline {
+            position: relative;
+            max-width: 900px;
+            margin: 2rem auto;
+        }
+        
+        .timeline::after {
             content: '';
             position: absolute;
-            bottom: -10px;
+            width: 6px;
+            background-color: #0d4d9c;
+            top: 0;
+            bottom: 0;
             left: 50%;
-            transform: translateX(-50%);
-            width: 100px;
-            height: 3px;
-            background-color: var(--accent-color);
+            margin-left: -3px;
         }
-
-        /* Blog Posts */
-        .blog-posts {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 30px;
-            margin-bottom: 60px;
+        
+        .timeline-item {
+            padding: 10px 40px;
+            position: relative;
+            width: 50%;
+            box-sizing: border-box;
         }
-
-        .post-card {
-            background-color: var(--card-bg);
+        
+        .timeline-item:nth-child(odd) {
+            left: 0;
+        }
+        
+        .timeline-item:nth-child(even) {
+            left: 50%;
+        }
+        
+        .timeline-content {
+            padding: 20px;
+            background-color: #f0f8ff;
             border-radius: 10px;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            border-left: 4px solid #ff9900;
         }
-
-        .post-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 15px 30px rgba(138, 43, 226, 0.2);
-            border-color: var(--accent-color);
+        
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border: 4px solid #0d4d9c;
+            border-radius: 50%;
+            top: 15px;
+            z-index: 1;
         }
-
-        .post-image {
-            height: 200px;
-            overflow: hidden;
+        
+        .timeline-item:nth-child(odd)::after {
+            right: -12px;
         }
-
-        .post-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.5s ease;
+        
+        .timeline-item:nth-child(even)::after {
+            left: -12px;
         }
-
-        .post-card:hover .post-image img {
-            transform: scale(1.05);
+        
+        /* Footer Styles */
+        footer {
+            background-color: #0d4d9c;
+            color: white;
+            padding: 3rem 0 1.5rem;
+            margin-top: 3rem;
         }
-
-        .post-content {
-            padding: 25px;
-        }
-
-        .post-date {
-            display: inline-block;
-            background-color: rgba(138, 43, 226, 0.2);
-            color: var(--accent-color);
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            margin-bottom: 15px;
-        }
-
-        .post-title {
-            font-family: 'Josefin Sans', sans-serif;
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            color: var(--text-color);
-        }
-
-        .post-excerpt {
-            color: var(--secondary-text);
-            margin-bottom: 20px;
-        }
-
-        .read-more {
-            color: var(--accent-color);
-            text-decoration: none;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: gap 0.3s ease;
-        }
-
-        .read-more:hover {
-            gap: 10px;
-        }
-
-        /* Society Info */
-        .society-info {
-            background-color: var(--card-bg);
-            border-radius: 10px;
-            padding: 40px;
-            margin-bottom: 60px;
-            border: 1px solid var(--border-color);
-        }
-
-        .society-info h3 {
-            font-family: 'Josefin Sans', sans-serif;
-            font-size: 1.8rem;
-            margin-bottom: 20px;
-            color: var(--accent-color);
-        }
-
-        .society-info p {
-            margin-bottom: 15px;
-            color: var(--secondary-text);
-        }
-
-        .info-grid {
+        
+        .footer-content {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 30px;
-            margin-top: 30px;
+            margin-bottom: 2rem;
         }
-
-        .info-item {
-            text-align: center;
+        
+        .footer-section h3 {
+            font-size: 1.4rem;
+            margin-bottom: 1.2rem;
+            color: #ff9900;
         }
-
-        .info-item i {
-            font-size: 2.5rem;
-            color: var(--accent-color);
-            margin-bottom: 15px;
+        
+        .footer-section ul {
+            list-style: none;
         }
-
-        .info-item h4 {
-            font-family: 'Josefin Sans', sans-serif;
-            font-size: 1.3rem;
+        
+        .footer-section ul li {
             margin-bottom: 10px;
         }
-
-        /* Footer */
-        footer {
-            background-color: #05050a;
-            padding: 40px 0;
-            text-align: center;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .footer-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .social-links {
-            display: flex;
-            gap: 20px;
-        }
-
-        .social-links a {
-            color: var(--secondary-text);
-            font-size: 1.5rem;
+        
+        .footer-section a {
+            color: #d1e7ff;
+            text-decoration: none;
             transition: color 0.3s ease;
         }
-
-        .social-links a:hover {
-            color: var(--accent-color);
+        
+        .footer-section a:hover {
+            color: #ff9900;
         }
-
+        
         .copyright {
-            color: var(--secondary-text);
+            text-align: center;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
             font-size: 0.9rem;
+            color: #d1e7ff;
         }
-
+        
         /* Responsive Design */
         @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                gap: 20px;
-            }
-            
-            nav ul {
-                gap: 20px;
-            }
-            
-            .hero h2 {
+            .header-content h1 {
                 font-size: 2.2rem;
             }
             
-            .blog-posts {
-                grid-template-columns: 1fr;
+            .hero h2 {
+                font-size: 2rem;
             }
             
-            .society-info {
-                padding: 25px;
+            .timeline::after {
+                left: 31px;
             }
-        }
-
-        @media (max-width: 480px) {
-            .logo-text h1 {
-                font-size: 1.8rem;
+            
+            .timeline-item {
+                width: 100%;
+                padding-left: 70px;
+                padding-right: 25px;
+            }
+            
+            .timeline-item:nth-child(even) {
+                left: 0;
+            }
+            
+            .timeline-item::after {
+                left: 21px;
+            }
+            
+            .timeline-item:nth-child(odd)::after,
+            .timeline-item:nth-child(even)::after {
+                left: 21px;
             }
             
             nav ul {
-                flex-wrap: wrap;
-                justify-content: center;
+                flex-direction: column;
+                align-items: center;
             }
             
-            .hero h2 {
-                font-size: 1.8rem;
+            nav li {
+                margin: 5px 0;
             }
         }
     </style>
@@ -382,185 +360,247 @@
     <!-- Header Section -->
     <header>
         <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <div class="logo-icon">
-                        <i class="fas fa-ghost"></i>
-                    </div>
-                    <div class="logo-text">
-                        <h1>CAMPUS PARANORMAL SOCIETY</h1>
-                        <p>Investigating the Unexplained Since 2012</p>
-                    </div>
+            <div class="logo-section">
+                <div class="who-logo">
+                    <i class="fas fa-globe-americas"></i>
                 </div>
-                <nav>
-                    <ul>
-                        <li><a href="#home">Home</a></li>
-                        <li><a href="#blog">Blog</a></li>
-                        <li><a href="#about">About</a></li>
-                        <li><a href="#contact">Contact</a></li>
-                    </ul>
-                </nav>
+                <div class="header-content">
+                    <h1>World Health Organization</h1>
+                    <p>Working for a healthier world for everyone, everywhere</p>
+                </div>
             </div>
         </div>
     </header>
-
-    <!-- Hero Section -->
-    <section class="hero" id="home">
+    
+    <!-- Navigation -->
+    <nav>
         <div class="container">
-            <h2>Welcome to the Paranormal</h2>
-            <p>Join us as we explore the unexplained phenomena across our campus. From ghostly apparitions to mysterious sounds, we document it all.</p>
-            <a href="#blog" class="cta-button">Explore Recent Cases</a>
+            <ul>
+                <li><a href="#about">About WHO</a></li>
+                <li><a href="#mission">Our Mission</a></li>
+                <li><a href="#history">History</a></li>
+                <li><a href="#work">Our Work</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
         </div>
-    </section>
-
-    <!-- Blog Posts Section -->
-    <section id="blog">
-        <div class="container">
-            <h2 class="section-title">Recent Paranormal Events</h2>
-            <div class="blog-posts">
-                <!-- Post 1 -->
-                <article class="post-card">
-                    <div class="post-image">
-                        <img src="https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80" alt="Old campus library">
-                    </div>
-                    <div class="post-content">
-                        <span class="post-date">October 15, 2023</span>
-                        <h3 class="post-title">The Whispering Hallways of Old Library</h3>
-                        <p class="post-excerpt">For decades, students have reported hearing faint whispers in the east wing of the Old Library after midnight. Our investigation captured EVP recordings of multiple voices saying "help us" and "find the truth."</p>
-                        <a href="#" class="read-more">Read Full Investigation <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                </article>
-
-                <!-- Post 2 -->
-                <article class="post-card">
-                    <div class="post-image">
-                        <img src="https://images.unsplash.com/photo-1596462502278-27bfdc403348?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80" alt="Abandoned campus theater">
-                    </div>
-                    <div class="post-content">
-                        <span class="post-date">September 28, 2023</span>
-                        <h3 class="post-title">The Phantom Performer of Abandoned Theater</h3>
-                        <p class="post-excerpt">The old campus theater, closed since 1978, still echoes with phantom applause and occasional piano music. Our night investigation revealed cold spots and captured a shadow figure on thermal camera.</p>
-                        <a href="#" class="read-more">Read Full Investigation <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                </article>
-
-                <!-- Post 3 -->
-                <article class="post-card">
-                    <div class="post-image">
-                        <img src="https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80" alt="Campus dormitory hallway">
-                    </div>
-                    <div class="post-content">
-                        <span class="post-date">August 10, 2023</span>
-                        <h3 class="post-title">The Crying Statue in Memorial Garden</h3>
-                        <p class="post-excerpt">The marble statue of founder William Hawthorne weeps real tears on the anniversary of his death. Our chemical analysis confirmed the liquid is water, with no external source. Multiple witnesses have reported seeing the phenomenon.</p>
-                        <a href="#" class="read-more">Read Full Investigation <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                </article>
-
-                <!-- Post 4 -->
-                <article class="post-card">
-                    <div class="post-image">
-                        <img src="https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80" alt="Science building at night">
-                    </div>
-                    <div class="post-content">
-                        <span class="post-date">July 5, 2023</span>
-                        <h3 class="post-title">The Levitating Books in Science Wing</h3>
-                        <p class="post-excerpt">Multiple physics students have reported textbooks mysteriously levitating in study room 304. Our motion-activated cameras captured several incidents where books rose 2-3 feet before dropping suddenly.</p>
-                        <a href="#" class="read-more">Read Full Investigation <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                </article>
-
-                <!-- Post 5 -->
-                <article class="post-card">
-                    <div class="post-image">
-                        <img src="https://images.unsplash.com/photo-1532094349884-543bc11b234d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80" alt="Clock tower">
-                    </div>
-                    <div class="post-content">
-                        <span class="post-date">June 18, 2023</span>
-                        <h3 class="post-title">The Clock That Strikes Thirteen</h3>
-                        <p class="post-excerpt">On foggy nights, the historic campus clock tower is said to strike thirteen times at midnight. Audio analysis confirms the anomalous sound occurs precisely when temperature drops below 50°F.</p>
-                        <a href="#" class="read-more">Read Full Investigation <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                </article>
-
-                <!-- Post 6 -->
-                <article class="post-card">
-                    <div class="post-image">
-                        <img src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80" alt="Swimming pool">
-                    </div>
-                    <div class="post-content">
-                        <span class="post-date">May 3, 2023</span>
-                        <h3 class="post-title">The Drowning Ghost of Campus Pool</h3>
-                        <p class="post-excerpt">Lifeguards report seeing a figure drowning in the deep end after closing hours, but no one is ever there. Our underwater cameras captured unexplained water disturbances at 2:17 AM every Thursday.</p>
-                        <a href="#" class="read-more">Read Full Investigation <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                </article>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Hero Section -->
+        <section class="hero">
+            <h2>Building a Better, Healthier Future</h2>
+            <p>The World Health Organization (WHO) is the United Nations agency that connects nations, partners and people to promote health, keep the world safe and serve the vulnerable - so everyone, everywhere can attain the highest level of health.</p>
+            <a href="https://www.who.int/" target="_blank" class="btn">Visit Official WHO Website</a>
+        </section>
+        
+        <!-- About Section -->
+        <section id="about">
+            <h2>About WHO</h2>
+            <p>The World Health Organization (WHO), established on April 7, 1948, is a specialized agency of the United Nations responsible for international public health. Headquartered in Geneva, Switzerland, WHO works worldwide to promote health, keep the world safe, and serve the vulnerable.</p>
+            <p>WHO's primary role is to direct and coordinate international health within the United Nations system. Its main areas of work include health systems, health through the life-course, noncommunicable and communicable diseases, preparedness, surveillance and response, and corporate services.</p>
+            <div class="mission-statement">
+                "Our goal is to build a better, healthier future for people all over the world. Through offices in more than 150 countries, WHO staff work side by side with governments and other partners to ensure the highest attainable level of health for all people."
             </div>
-        </div>
-    </section>
-
-    <!-- About Section -->
-    <section id="about">
-        <div class="container">
-            <h2 class="section-title">About Our Society</h2>
-            <div class="society-info">
-                <h3>Investigating the Unexplained Since 2012</h3>
-                <p>The Campus Paranormal Society was founded in 2012 by a group of students fascinated by the many unexplained occurrences on our university grounds. Our mission is to scientifically investigate paranormal claims while maintaining respect for those who may be affected by these phenomena.</p>
-                <p>We use a combination of traditional investigation methods and cutting-edge technology to document and analyze paranormal activity. All our findings are meticulously documented and shared with the university community through this blog.</p>
+        </section>
+        
+        <!-- Mission Section -->
+        <section id="mission">
+            <h2>Our Mission</h2>
+            <p>WHO's mission is to promote health, keep the world safe, and serve the vulnerable. We strive to ensure that a billion more people have universal health coverage, a billion more people are protected from health emergencies, and a billion more people enjoy better health and well-being.</p>
+            
+            <div class="grid-container">
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-heartbeat"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Promote Health</h3>
+                        <p>Advancing universal health coverage, addressing social determinants, and creating healthy environments to promote physical and mental health.</p>
+                    </div>
+                </div>
                 
-                <div class="info-grid">
-                    <div class="info-item">
-                        <i class="fas fa-search"></i>
-                        <h4>Scientific Approach</h4>
-                        <p>We use EMF detectors, thermal cameras, and audio analysis in all investigations.</p>
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-shield-alt"></i>
                     </div>
-                    <div class="info-item">
-                        <i class="fas fa-users"></i>
-                        <h4>Community Driven</h4>
-                        <p>We welcome reports from all students and staff about unusual experiences.</p>
+                    <div class="card-content">
+                        <h3>Keep the World Safe</h3>
+                        <p>Strengthening global health security by preventing, detecting, and responding to public health emergencies and outbreaks.</p>
                     </div>
-                    <div class="info-item">
-                        <i class="fas fa-archive"></i>
-                        <h4>Documented History</h4>
-                        <p>We maintain an archive of all campus paranormal reports since 1950.</p>
+                </div>
+                
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-hands-helping"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Serve the Vulnerable</h3>
+                        <p>Prioritizing the needs of the most vulnerable populations and ensuring equitable access to essential health services.</p>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
-
+        </section>
+        
+        <!-- History Section -->
+        <section id="history">
+            <h2>WHO History</h2>
+            <p>Since its inception in 1948, WHO has played a crucial role in global health achievements. Here are some key milestones:</p>
+            
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>1948: WHO Established</h3>
+                        <p>The World Health Organization Constitution came into force on April 7, 1948 - a date we now celebrate every year as World Health Day.</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>1979: Smallpox Eradicated</h3>
+                        <p>WHO certified the global eradication of smallpox in 1979, the first disease in history to be eliminated by human effort.</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>1988: Global Polio Eradication Initiative</h3>
+                        <p>WHO launched the Global Polio Eradication Initiative, reducing polio cases by over 99% worldwide.</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>2003: Framework Convention on Tobacco Control</h3>
+                        <p>WHO adopted the first global public health treaty, the Framework Convention on Tobacco Control, to reduce tobacco-related deaths.</p>
+                    </div>
+                </div>
+                
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <h3>2020: COVID-19 Pandemic Response</h3>
+                        <p>WHO coordinated the global response to the COVID-19 pandemic, providing guidance, technical support, and facilitating vaccine distribution.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Work Areas Section -->
+        <section id="work">
+            <h2>Key Areas of Work</h2>
+            <p>WHO works across a broad range of health issues to achieve better health for everyone, everywhere. Our key areas of focus include:</p>
+            
+            <div class="grid-container">
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-virus"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Communicable Diseases</h3>
+                        <p>Preventing and controlling the spread of infectious diseases like HIV, tuberculosis, malaria, and COVID-19 through vaccination, treatment, and surveillance.</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-user-md"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Health Systems</h3>
+                        <p>Strengthening health systems to achieve universal health coverage and ensure access to quality essential health services.</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-stethoscope"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Noncommunicable Diseases</h3>
+                        <p>Preventing and controlling noncommunicable diseases like cancer, diabetes, and heart disease through promotion of healthy lifestyles.</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-baby"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Life Course</h3>
+                        <p>Promoting health through all stages of life, from maternal and newborn health to healthy aging.</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-climate"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Health & Environment</h3>
+                        <p>Addressing environmental risks to health, including climate change, air pollution, and water and sanitation issues.</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-icon">
+                        <i class="fas fa-head-side-mask"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Health Emergencies</h3>
+                        <p>Preparing for, detecting, and rapidly responding to health emergencies and humanitarian crises.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
     <!-- Footer -->
     <footer id="contact">
         <div class="container">
             <div class="footer-content">
-                <div class="logo">
-                    <div class="logo-icon">
-                        <i class="fas fa-ghost"></i>
-                    </div>
-                    <div class="logo-text">
-                        <h1>CAMPUS PARANORMAL SOCIETY</h1>
-                    </div>
+                <div class="footer-section">
+                    <h3>Contact WHO</h3>
+                    <p><i class="fas fa-map-marker-alt"></i> Avenue Appia 20, 1211 Geneva 27, Switzerland</p>
+                    <p><i class="fas fa-phone"></i> +41 22 791 21 11</p>
+                    <p><i class="fas fa-envelope"></i> info@who.int</p>
                 </div>
                 
-                <p>Report an incident or join our investigations</p>
-                
-                <div class="social-links">
-                    <a href="#"><i class="fab fa-facebook"></i></a>
-                    <a href="#"><i class="fab fa-twitter"></i></a>
-                    <a href="#"><i class="fab fa-instagram"></i></a>
-                    <a href="#"><i class="fas fa-envelope"></i></a>
+                <div class="footer-section">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="https://www.who.int/news-room" target="_blank">News & Events</a></li>
+                        <li><a href="https://www.who.int/countries" target="_blank">Countries</a></li>
+                        <li><a href="https://www.who.int/health-topics" target="_blank">Health Topics</a></li>
+                        <li><a href="https://www.who.int/data" target="_blank">Data & Statistics</a></li>
+                        <li><a href="https://www.who.int/publications" target="_blank">Publications</a></li>
+                    </ul>
                 </div>
                 
-                <p class="copyright">© 2023 Campus Paranormal Society. All investigations documented with respect and scientific rigor.</p>
+                <div class="footer-section">
+                    <h3>Follow WHO</h3>
+                    <ul>
+                        <li><a href="https://twitter.com/WHO" target="_blank"><i class="fab fa-twitter"></i> Twitter</a></li>
+                        <li><a href="https://facebook.com/WHO" target="_blank"><i class="fab fa-facebook"></i> Facebook</a></li>
+                        <li><a href="https://instagram.com/who" target="_blank"><i class="fab fa-instagram"></i> Instagram</a></li>
+                        <li><a href="https://youtube.com/who" target="_blank"><i class="fab fa-youtube"></i> YouTube</a></li>
+                        <li><a href="https://linkedin.com/company/world-health-organization" target="_blank"><i class="fab fa-linkedin"></i> LinkedIn</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="copyright">
+                <p>&copy; 2023 World Health Organization. This is an informational page about WHO. For official information, please visit <a href="https://www.who.int/" target="_blank">who.int</a>.</p>
+                <p>World Health Organization HTML page created for educational purposes.</p>
             </div>
         </div>
     </footer>
-
+    
     <script>
         // Smooth scrolling for navigation links
         document.querySelectorAll('nav a').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
                 e.preventDefault();
+                
                 const targetId = this.getAttribute('href');
                 const targetElement = document.querySelector(targetId);
                 
@@ -570,27 +610,14 @@
                 });
             });
         });
-
-        // Add hover effect to post cards
-        document.querySelectorAll('.post-card').forEach(card => {
-            card.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateY(-10px)';
-            });
-            
-            card.addEventListener('mouseleave', function() {
-                this.style.transform = 'translateY(0)';
-            });
-        });
-
-        // CTA button scroll to blog
-        document.querySelector('.cta-button').addEventListener('click', function(e) {
-            e.preventDefault();
-            const blogSection = document.querySelector('#blog');
-            
-            window.scrollTo({
-                top: blogSection.offsetTop - 80,
-                behavior: 'smooth'
-            });
+        
+        // Add current year to copyright
+        document.addEventListener('DOMContentLoaded', function() {
+            const year = new Date().getFullYear();
+            const copyrightElement = document.querySelector('.copyright p');
+            if (copyrightElement) {
+                copyrightElement.innerHTML = copyrightElement.innerHTML.replace('2023', year);
+            }
         });
     </script>
 </body>
