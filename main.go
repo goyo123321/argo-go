@@ -28,7 +28,7 @@ type Config struct {
 	SubPath      string
 	Port         string
 	ExternalPort string
-	UUID         string  // 如果环境变量为空，将自动生成
+	UUID         string // 如果环境变量为空，将自动生成
 	NezhaServer  string
 	NezhaPort    string
 	NezhaKey     string
@@ -37,6 +37,10 @@ type Config struct {
 	CFIP         string
 	CFPort       string
 	Name         string
+	// 监控配置
+	MonitorKey    string
+	MonitorServer string
+	MonitorURL    string
 }
 
 // 全局变量
@@ -46,6 +50,7 @@ var (
 	mu           sync.RWMutex
 	subscription string
 	proxy        *httputil.ReverseProxy
+	monitorPath  string
 )
 
 func main() {
@@ -62,6 +67,9 @@ func main() {
 	// 生成随机文件名
 	generateFilenames()
 	
+	// 设置监控脚本路径
+	monitorPath = filepath.Join(config.FilePath, "cf-vps-monitor.sh")
+	
 	// 清理历史文件和节点
 	cleanup()
 	
@@ -73,6 +81,14 @@ func main() {
 	
 	// 启动HTTP服务器
 	go startHTTPServer()
+	
+	// 启动监控
+	if config.MonitorKey != "" && config.MonitorServer != "" && config.MonitorURL != "" {
+		go startMonitor()
+		log.Println("监控功能已启用")
+	} else {
+		log.Println("监控配置不完整，跳过监控功能")
+	}
 	
 	// 主流程
 	go startMainProcess()
@@ -103,15 +119,119 @@ func initConfig() {
 		NezhaServer:  getEnv("NEZHA_SERVER", ""),
 		NezhaPort:    getEnv("NEZHA_PORT", ""),
 		NezhaKey:     getEnv("NEZHA_KEY", ""),
-		ArgoDomain:   getEnv("ARGO_DOMAIN", "cftime.llng.de5.net"),
-		ArgoAuth:     getEnv("ARGO_AUTH", "{"AccountTag":"5df51ef8a13b1d5d1a88ae015afa598b","TunnelSecret":"N1EzDh6/qIvsF1CB1nVq3Ud2S56HnMfbTfHQkp6wH9k=","TunnelID":"66e2951d-0287-41d7-b6b0-c5d6cbff04da","Endpoint":""}"),
+		ArgoDomain:   getEnv("ARGO_DOMAIN", ""),
+		ArgoAuth:     getEnv("ARGO_AUTH", ""),
 		CFIP:         getEnv("CFIP", "cdns.doon.eu.org"),
 		CFPort:       getEnv("CFPORT", "443"),
 		Name:         getEnv("NAME", ""),
+		// 监控配置
+		MonitorKey:    getEnv("MONITOR_KEY", "74dc2a9897c8db852b664358dc58c09a7416f690375ab848f6456c4937c816aa"),
+		MonitorServer: getEnv("MONITOR_SERVER", "pfddm8"),
+		MonitorURL:    getEnv("MONITOR_URL", "https://uptime-vps.brxrqimy.workers.dev"),
 	}
 	
 	log.Println("配置初始化完成")
 	log.Printf("最终使用的UUID: %s", config.UUID)
+	
+	// 输出监控配置信息（不输出完整密钥）
+	if config.MonitorKey != "" && config.MonitorServer != "" && config.MonitorURL != "" {
+		maskedKey := config.MonitorKey
+		if len(maskedKey) > 16 {
+			maskedKey = maskedKey[:8] + "..." + maskedKey[len(maskedKey)-8:]
+		}
+		log.Printf("监控配置: 密钥=%s, 服务器=%s, URL=%s", maskedKey, config.MonitorServer, config.MonitorURL)
+	}
+}
+
+// 启动监控功能
+func startMonitor() {
+	// 等待主流程初始化完成
+	time.Sleep(10 * time.Second)
+	
+	// 首次执行监控
+	if err := setupAndRunMonitor(); err != nil {
+		log.Printf("首次监控执行失败: %v", err)
+	}
+	
+	// 创建定时器，每5分钟执行一次监控
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-ticker.C:
+			if err := runMonitor(); err != nil {
+				log.Printf("监控执行失败: %v", err)
+			} else {
+				log.Println("监控执行成功")
+			}
+		}
+	}
+}
+
+// 下载并设置监控脚本
+func setupAndRunMonitor() error {
+	// 下载监控脚本
+	log.Println("开始下载监控脚本...")
+	
+	scriptURL := "https://raw.githubusercontent.com/kadidalax/cf-vps-monitor/main/cf-vps-monitor.sh"
+	
+	// 使用Go的http包下载
+	resp, err := http.Get(scriptURL)
+	if err != nil {
+		return fmt.Errorf("下载监控脚本失败: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载监控脚本失败，状态码: %d", resp.StatusCode)
+	}
+	
+	// 读取脚本内容
+	scriptData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取监控脚本失败: %v", err)
+	}
+	
+	// 保存到文件
+	if err := os.WriteFile(monitorPath, scriptData, 0755); err != nil {
+		return fmt.Errorf("保存监控脚本失败: %v", err)
+	}
+	
+	log.Printf("监控脚本已保存到: %s", monitorPath)
+	
+	// 执行监控脚本（带安装参数）
+	cmd := exec.Command("/bin/sh", monitorPath, "-i", "-k", config.MonitorKey, "-s", config.MonitorServer, "-u", config.MonitorURL)
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("执行监控脚本失败: %v, 输出: %s", err, output)
+	}
+	
+	log.Printf("监控脚本执行成功，输出:\n%s", output)
+	return nil
+}
+
+// 运行监控脚本（不带安装参数）
+func runMonitor() error {
+	if _, err := os.Stat(monitorPath); os.IsNotExist(err) {
+		// 如果监控脚本不存在，重新下载
+		if err := setupAndRunMonitor(); err != nil {
+			return err
+		}
+		return nil
+	}
+	
+	// 执行监控脚本（不带安装参数）
+	cmd := exec.Command("/bin/sh", monitorPath, "-k", config.MonitorKey, "-s", config.MonitorServer, "-u", config.MonitorURL)
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("执行监控脚本失败: %v, 输出: %s", err, output)
+	}
+	
+	log.Printf("监控脚本执行成功，输出:\n%s", output)
+	return nil
 }
 
 // 生成UUID v4
@@ -181,7 +301,7 @@ func generateFilenames() {
 }
 
 func cleanup() {
-	// 清理旧文件
+	// 清理旧文件（但保留监控脚本）
 	if err := os.RemoveAll(config.FilePath); err != nil {
 		log.Printf("清理目录失败: %v", err)
 	}
@@ -1077,7 +1197,7 @@ func addVisitTask() {
 }
 
 func cleanFiles() {
-	// 要删除的文件列表
+	// 要删除的文件列表（但不删除监控脚本）
 	filesToDelete := []string{
 		files["bootLog"],
 		files["config"],
