@@ -37,8 +37,7 @@ Go 代理服务器
 | CFPORT | 否 | 443 | 节点端口 |
 | NAME | 否 | Vls | 节点名称前缀 |
 | FILE_PATH | 否 | ./tmp | 运行目录 |
-| SUB_PATH | 否 | sub | 订阅路径 |
-基础配置    
+| SUB_PATH | 否 | sub | 订阅路径 |  
 
 📦 快速开始
 
