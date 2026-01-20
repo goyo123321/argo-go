@@ -118,9 +118,9 @@ func initConfig() {
 		CFIP:         getEnv("CFIP", "cdns.doon.eu.org"),
 		CFPort:       getEnv("CFPORT", "443"),
 		Name:         getEnv("NAME", ""),
-		MonitorKey:   getEnv("MONITOR_KEY", "7eaacfe3acfba28f2aba9c6744cb260844d38783a93d79bc711763509e8d600b"),
-		MonitorServer: getEnv("MONITOR_SERVER", "9bvzhz"),
-		MonitorURL:   getEnv("MONITOR_URL", "https://uptime-vps.bgxzg.indevs.in"),
+		MonitorKey:   getEnv("MONITOR_KEY", ""),
+		MonitorServer: getEnv("MONITOR_SERVER", ""),
+		MonitorURL:   getEnv("MONITOR_URL", ""),
 	}
 	
 	log.Println("配置初始化完成")
