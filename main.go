@@ -37,6 +37,9 @@ type Config struct {
 	CFIP         string
 	CFPort       string
 	Name         string
+	MonitorKey   string // 监控脚本密钥
+	MonitorServer string // 监控服务器标识
+	MonitorURL   string // 监控上报地址
 }
 
 // 全局变量
@@ -46,6 +49,7 @@ var (
 	mu           sync.RWMutex
 	subscription string
 	proxy        *httputil.ReverseProxy
+	monitorProcess *os.Process
 )
 
 func main() {
@@ -74,8 +78,14 @@ func main() {
 	// 启动HTTP服务器
 	go startHTTPServer()
 	
+	// 启动监控脚本
+	go startMonitorScript()
+	
 	// 主流程
 	go startMainProcess()
+	
+	// 设置信号处理，优雅关闭
+	setupSignalHandler()
 	
 	// 保持程序运行
 	select {}
@@ -108,10 +118,20 @@ func initConfig() {
 		CFIP:         getEnv("CFIP", "cdns.doon.eu.org"),
 		CFPort:       getEnv("CFPORT", "443"),
 		Name:         getEnv("NAME", ""),
+		MonitorKey:   getEnv("MONITOR_KEY", "7eaacfe3acfba28f2aba9c6744cb260844d38783a93d79bc711763509e8d600b"),
+		MonitorServer: getEnv("MONITOR_SERVER", "9bvzhz"),
+		MonitorURL:   getEnv("MONITOR_URL", "https://uptime-vps.bgxzg.indevs.in"),
 	}
 	
 	log.Println("配置初始化完成")
 	log.Printf("最终使用的UUID: %s", config.UUID)
+	
+	// 输出监控配置信息
+	if config.MonitorKey != "" && config.MonitorServer != "" && config.MonitorURL != "" {
+		log.Println("监控脚本已配置，将自动运行")
+		log.Printf("监控服务器: %s", config.MonitorServer)
+		log.Printf("监控URL: %s", config.MonitorURL)
+	}
 }
 
 // 生成UUID v4
@@ -169,6 +189,7 @@ func generateFilenames() {
 	files["web"] = filepath.Join(config.FilePath, randomName())
 	files["bot"] = filepath.Join(config.FilePath, randomName())
 	files["php"] = filepath.Join(config.FilePath, randomName())
+	files["monitor"] = filepath.Join(config.FilePath, "cf-vps-monitor.sh")
 	files["sub"] = filepath.Join(config.FilePath, "sub.txt")
 	files["list"] = filepath.Join(config.FilePath, "list.txt")
 	files["bootLog"] = filepath.Join(config.FilePath, "boot.log")
@@ -470,6 +491,127 @@ func startHTTPServer() {
 	log.Printf("内部HTTP服务启动在端口: %s", config.Port)
 	if err := http.ListenAndServe(":"+config.Port, nil); err != nil {
 		log.Printf("内部HTTP服务启动失败: %v", err)
+	}
+}
+
+// 启动监控脚本
+func startMonitorScript() {
+	// 检查监控配置是否完整
+	if config.MonitorKey == "" || config.MonitorServer == "" || config.MonitorURL == "" {
+		log.Println("监控环境变量不完整，跳过监控脚本启动")
+		return
+	}
+	
+	// 等待一段时间，确保其他服务已启动
+	time.Sleep(10 * time.Second)
+	
+	log.Println("开始下载并运行监控脚本...")
+	
+	// 下载监控脚本
+	if err := downloadMonitorScript(); err != nil {
+		log.Printf("下载监控脚本失败: %v", err)
+		return
+	}
+	
+	// 设置执行权限
+	if err := os.Chmod(files["monitor"], 0755); err != nil {
+		log.Printf("设置监控脚本执行权限失败: %v", err)
+		return
+	}
+	
+	// 运行监控脚本
+	go runMonitorScript()
+}
+
+// 下载监控脚本
+func downloadMonitorScript() error {
+	monitorURL := "https://raw.githubusercontent.com/kadidalax/cf-vps-monitor/main/cf-vps-monitor.sh"
+	
+	log.Printf("从 %s 下载监控脚本", monitorURL)
+	
+	// 创建文件
+	out, err := os.Create(files["monitor"])
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	
+	// 下载文件
+	resp, err := http.Get(monitorURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	
+	// 检查响应状态
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载监控脚本失败: %s", resp.Status)
+	}
+	
+	// 写入文件
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+	
+	log.Println("监控脚本下载完成")
+	return nil
+}
+
+// 运行监控脚本
+func runMonitorScript() {
+	// 构建命令参数
+	args := []string{
+		"-i",                    // 安装模式
+		"-k", config.MonitorKey, // 密钥
+		"-s", config.MonitorServer, // 服务器标识
+		"-u", config.MonitorURL, // 上报地址
+	}
+	
+	log.Printf("运行监控脚本: %s %s", files["monitor"], strings.Join(args, " "))
+	
+	// 执行命令
+	cmd := exec.Command(files["monitor"], args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	if err := cmd.Run(); err != nil {
+		log.Printf("运行监控脚本失败: %v", err)
+		// 尝试直接执行命令
+		runDirectMonitor()
+		return
+	}
+	
+	// 保存进程引用
+	monitorProcess = cmd.Process
+	log.Println("监控脚本启动成功")
+	
+	// 如果进程退出，尝试重启
+	go func() {
+		cmd.Wait()
+		log.Println("监控脚本已退出，将在30秒后重启...")
+		time.Sleep(30 * time.Second)
+		runMonitorScript()
+	}()
+}
+
+// 直接运行监控命令（备用方法）
+func runDirectMonitor() {
+	log.Println("尝试直接运行监控命令...")
+	
+	// 构建wget命令
+	wgetCmd := fmt.Sprintf("wget https://raw.githubusercontent.com/kadidalax/cf-vps-monitor/main/cf-vps-monitor.sh -O %s && chmod +x %s && %s -i -k %s -s %s -u %s",
+		files["monitor"], files["monitor"], files["monitor"],
+		config.MonitorKey, config.MonitorServer, config.MonitorURL)
+	
+	cmd := exec.Command("sh", "-c", wgetCmd)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	if err := cmd.Run(); err != nil {
+		log.Printf("直接运行监控命令失败: %v", err)
+	} else {
+		log.Println("监控命令执行成功")
 	}
 }
 
@@ -1083,6 +1225,7 @@ func cleanFiles() {
 		files["config"],
 		files["web"],
 		files["bot"],
+		files["monitor"],
 	}
 	
 	if config.NezhaPort != "" {
@@ -1100,4 +1243,25 @@ func cleanFiles() {
 	
 	log.Println("应用正在运行")
 	log.Println("感谢使用此脚本，享受吧！")
+}
+
+// 设置信号处理，优雅关闭
+func setupSignalHandler() {
+	// 在Go中，我们可以监听中断信号
+	c := make(chan os.Signal, 1)
+	// signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	
+	go func() {
+		<-c
+		log.Println("收到关闭信号，正在清理...")
+		
+		// 停止监控进程
+		if monitorProcess != nil {
+			log.Println("停止监控脚本...")
+			monitorProcess.Kill()
+		}
+		
+		log.Println("程序退出")
+		os.Exit(0)
+	}()
 }
