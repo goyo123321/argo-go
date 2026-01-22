@@ -1,37 +1,38 @@
 # 使用官方 Go 镜像
 FROM golang:1.21-alpine
 
-# 安装必要的工具和监控依赖
+# 安装必要的工具
 RUN apk add --no-cache \
     git \
-    curl \
     bash \
-    ifstat \
+    curl \
     jq \
-    && echo "安装监控依赖完成"
+    iproute2 \
+    net-tools
 
 # 设置工作目录
 WORKDIR /app
 
-# 复制 Go 模块文件
+# 复制 go.mod 和 go.sum 文件
 COPY go.mod go.sum ./
 
-# 设置环境变量
-ENV GOPROXY=https://goproxy.cn,direct
-ENV GO111MODULE=on
-ENV USER=root
+# 下载依赖
+RUN go mod download
 
 # 复制源代码
 COPY . .
 
-# 编译应用 - 输出文件名为 app
+# 编译应用
 RUN go build -o app main.go
 
-# 创建必要的目录结构（根据日志需要）
+# 创建必要的目录结构
 RUN mkdir -p ./tmp
 
 # 暴露端口
 EXPOSE 3000 7860
+
+# 设置默认用户
+ENV USER=root
 
 # 运行应用
 CMD ["./app"]
