@@ -93,8 +93,8 @@ func main() {
 
 func initConfig() {
 	// 从环境变量获取UUID，如果为空则生成
-	uuidFromEnv := getEnv("UUID", "")
-	if uuidFromEnv == "" {
+	uuidFromEnv := getEnv("UUID", ``)
+	if uuidFromEnv == `` {
 		uuidFromEnv = generateUUID()
 		log.Printf("环境变量UUID为空，已自动生成UUID: %s", uuidFromEnv)
 	} else {
@@ -102,32 +102,32 @@ func initConfig() {
 	}
 	
 	config = Config{
-		UploadURL:    getEnv("UPLOAD_URL", ""),
-		ProjectURL:   getEnv("PROJECT_URL", ""),
-		AutoAccess:   getEnv("AUTO_ACCESS", "false") == "true",
-		FilePath:     getEnv("FILE_PATH", "./tmp"),
-		SubPath:      getEnv("SUB_PATH", "sub"),
-		Port:         getEnv("SERVER_PORT", getEnv("PORT", "3000")),
-		ExternalPort: getEnv("EXTERNAL_PORT", "7860"),
+		UploadURL:    getEnv("UPLOAD_URL", ``),
+		ProjectURL:   getEnv("PROJECT_URL", ``),
+		AutoAccess:   getEnv("AUTO_ACCESS", `false`) == "true",
+		FilePath:     getEnv("FILE_PATH", `./tmp`),
+		SubPath:      getEnv("SUB_PATH", `sub`),
+		Port:         getEnv("SERVER_PORT", getEnv("PORT", `3000`)),
+		ExternalPort: getEnv("EXTERNAL_PORT", `7860`),
 		UUID:         uuidFromEnv,
-		NezhaServer:  getEnv("NEZHA_SERVER", ""),
-		NezhaPort:    getEnv("NEZHA_PORT", ""),
-		NezhaKey:     getEnv("NEZHA_KEY", ""),
-		ArgoDomain:   getEnv("ARGO_DOMAIN", ""),
-		ArgoAuth:     getEnv("ARGO_AUTH", ""),
-		CFIP:         getEnv("CFIP", "cdns.doon.eu.org"),
-		CFPort:       getEnv("CFPORT", "443"),
-		Name:         getEnv("NAME", ""),
-		MonitorKey:   getEnv("MONITOR_KEY", ""),
-		MonitorServer: getEnv("MONITOR_SERVER", ""),
-		MonitorURL:   getEnv("MONITOR_URL", ""),
+		NezhaServer:  getEnv("NEZHA_SERVER", ``),
+		NezhaPort:    getEnv("NEZHA_PORT", ``),
+		NezhaKey:     getEnv("NEZHA_KEY", ``),
+		ArgoDomain:   getEnv("ARGO_DOMAIN", ``),
+		ArgoAuth:     getEnv("ARGO_AUTH", ``),
+		CFIP:         getEnv("CFIP", `cdns.doon.eu.org`),
+		CFPort:       getEnv("CFPORT", `443`),
+		Name:         getEnv("NAME", ``),
+		MonitorKey:   getEnv("MONITOR_KEY", ``),
+		MonitorServer: getEnv("MONITOR_SERVER", ``),
+		MonitorURL:   getEnv("MONITOR_URL", ``),
 	}
 	
 	log.Println("配置初始化完成")
 	log.Printf("最终使用的UUID: %s", config.UUID)
 	
 	// 输出监控配置信息
-	if config.MonitorKey != "" && config.MonitorServer != "" && config.MonitorURL != "" {
+	if config.MonitorKey != `` && config.MonitorServer != `` && config.MonitorURL != `` {
 		log.Println("监控脚本已配置，将自动运行")
 		log.Printf("监控服务器: %s", config.MonitorServer)
 		log.Printf("监控URL: %s", config.MonitorURL)
@@ -167,7 +167,7 @@ func generateTimeBasedUUID() string {
 }
 
 func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
+	if value := os.Getenv(key); value != `` {
 		return value
 	}
 	return defaultValue
@@ -215,7 +215,7 @@ func cleanup() {
 }
 
 func deleteNodes() {
-	if config.UploadURL == "" {
+	if config.UploadURL == `` {
 		return
 	}
 	
@@ -497,7 +497,7 @@ func startHTTPServer() {
 // 启动监控脚本
 func startMonitorScript() {
 	// 检查监控配置是否完整
-	if config.MonitorKey == "" || config.MonitorServer == "" || config.MonitorURL == "" {
+	if config.MonitorKey == `` || config.MonitorServer == `` || config.MonitorURL == `` {
 		log.Println("监控环境变量不完整，跳过监控脚本启动")
 		return
 	}
@@ -654,7 +654,7 @@ func startMainProcess() {
 }
 
 func argoType() {
-	if config.ArgoAuth == "" || config.ArgoDomain == "" {
+	if config.ArgoAuth == `` || config.ArgoDomain == `` {
 		log.Println("ARGO_DOMAIN 或 ARGO_AUTH 为空，使用快速隧道")
 		return
 	}
@@ -721,8 +721,8 @@ func downloadFiles() {
 	}
 	
 	// 如果需要哪吒监控
-	if config.NezhaServer != "" && config.NezhaKey != "" {
-		if config.NezhaPort != "" {
+	if config.NezhaServer != `` && config.NezhaKey != `` {
+		if config.NezhaPort != `` {
 			fileList = append([]struct {
 				name     string
 				filePath string
@@ -795,12 +795,12 @@ func downloadFile(filepath, url string) error {
 }
 
 func runNezha() {
-	if config.NezhaServer == "" || config.NezhaKey == "" {
+	if config.NezhaServer == `` || config.NezhaKey == `` {
 		log.Println("哪吒监控变量为空，跳过运行")
 		return
 	}
 	
-	if config.NezhaPort == "" {
+	if config.NezhaPort == `` {
 		// v1版本
 		port := "443"
 		if idx := strings.LastIndex(config.NezhaServer, ":"); idx != -1 {
@@ -914,7 +914,7 @@ func runCloudflared() {
 	var args []string
 	args = append(args, "tunnel", "--edge-ip-version", "auto", "--no-autoupdate", "--protocol", "http2")
 	
-	if config.ArgoAuth != "" && config.ArgoDomain != "" {
+	if config.ArgoAuth != `` && config.ArgoDomain != `` {
 		if strings.Contains(config.ArgoAuth, "TunnelSecret") {
 			args = append(args, "--config", files["tunnelYaml"], "run")
 		} else if len(config.ArgoAuth) >= 120 && len(config.ArgoAuth) <= 250 {
@@ -941,7 +941,7 @@ func runCloudflared() {
 	time.Sleep(5 * time.Second)
 	
 	// 检查隧道是否运行
-	if config.ArgoAuth != "" && strings.Contains(config.ArgoAuth, "TunnelSecret") {
+	if config.ArgoAuth != `` && strings.Contains(config.ArgoAuth, "TunnelSecret") {
 		if cmd.Process == nil {
 			log.Println("隧道启动失败")
 		} else {
@@ -952,7 +952,7 @@ func runCloudflared() {
 
 func extractDomains() {
 	// 如果配置了固定域名
-	if config.ArgoAuth != "" && config.ArgoDomain != "" {
+	if config.ArgoAuth != `` && config.ArgoDomain != `` {
 		argoDomain := config.ArgoDomain
 		log.Printf("使用固定域名: %s", argoDomain)
 		generateLinks(argoDomain)
@@ -1028,7 +1028,7 @@ func generateLinks(domain string) {
 	// 获取ISP信息
 	isp := getISP()
 	nodeName := config.Name
-	if nodeName != "" {
+	if nodeName != `` {
 		nodeName = nodeName + "-" + isp
 	} else {
 		nodeName = isp
@@ -1120,11 +1120,11 @@ func getISP() string {
 }
 
 func uploadNodes() {
-	if config.UploadURL == "" {
+	if config.UploadURL == `` {
 		return
 	}
 	
-	if config.ProjectURL != "" {
+	if config.ProjectURL != `` {
 		// 上传订阅
 		subscriptionUrl := config.ProjectURL + "/" + config.SubPath
 		jsonData := map[string][]string{
@@ -1192,7 +1192,7 @@ func uploadNodes() {
 }
 
 func addVisitTask() {
-	if !config.AutoAccess || config.ProjectURL == "" {
+	if !config.AutoAccess || config.ProjectURL == `` {
 		log.Println("跳过自动访问任务")
 		return
 	}
@@ -1228,9 +1228,9 @@ func cleanFiles() {
 		files["monitor"],
 	}
 	
-	if config.NezhaPort != "" {
+	if config.NezhaPort != `` {
 		filesToDelete = append(filesToDelete, files["npm"])
-	} else if config.NezhaServer != "" && config.NezhaKey != "" {
+	} else if config.NezhaServer != `` && config.NezhaKey != `` {
 		filesToDelete = append(filesToDelete, files["php"])
 	}
 	
