@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +28,7 @@ type Config struct {
 	SubPath      string
 	Port         string
 	ExternalPort string
-	UUID         string  // Xray用户UUID，建议更换
+	UUID         string  // 如果环境变量为空，将自动生成
 	NezhaServer  string
 	NezhaPort    string
 	NezhaKey     string
@@ -38,6 +37,9 @@ type Config struct {
 	CFIP         string
 	CFPort       string
 	Name         string
+	MonitorKey   string // 监控脚本密钥
+	MonitorServer string // 监控服务器标识
+	MonitorURL   string // 监控上报地址
 }
 
 // 全局变量
@@ -47,6 +49,7 @@ var (
 	mu           sync.RWMutex
 	subscription string
 	proxy        *httputil.ReverseProxy
+	monitorProcess *os.Process
 )
 
 func main() {
@@ -75,56 +78,92 @@ func main() {
 	// 启动HTTP服务器
 	go startHTTPServer()
 	
+	// 启动监控脚本
+	go startMonitorScript()
+	
 	// 主流程
 	go startMainProcess()
+	
+	// 设置信号处理，优雅关闭
+	setupSignalHandler()
 	
 	// 保持程序运行
 	select {}
 }
 
 func initConfig() {
-	// 环境变量配置
-	uploadURL := getEnv("UPLOAD_URL", ``)                     // 节点或订阅自动上传地址，需填写部署Merge-sub项目后的首页地址，例如：https://merge.xxx.com
-	projectURL := getEnv("PROJECT_URL", ``)                   // 项目访问地址，用于生成订阅链接，例如：https://your-project.herokuapp.com
-	autoAccessStr := getEnv("AUTO_ACCESS", `false`)           // 是否自动访问项目URL保持活跃（true/false）
-	filePath := getEnv("FILE_PATH", `./tmp`)                  // 临时文件存储目录路径
-	subPath := getEnv("SUB_PATH", `sub`)                      // 订阅链接访问路径，例如访问订阅：https://your-domain.com/sub
-	port := getEnv("SERVER_PORT", getEnv("PORT", `3000`))     // 内部HTTP服务端口
-	externalPort := getEnv("EXTERNAL_PORT", `7860`)           // 外部代理服务器端口和Argo端口
-	uuid := getEnv("UUID", `3f33f14e-6a20-6d50-7f2b-87915bd2093a`) // Xray用户UUID，建议更换
-	nezhaServer := getEnv("NEZHA_SERVER", ``)                 // 哪吒监控服务器地址，哪吒v1格式：nezha.cc:5555
-	nezhaPort := getEnv("NEZHA_PORT", ``)                     // 哪吒v0监控服务器端口（可选）
-	nezhaKey := getEnv("NEZHA_KEY", ``)                       // 哪吒监控客户端密钥
-	argoDomain := getEnv("ARGO_DOMAIN", ``)                   // Cloudflare Argo隧道域名
-	argoAuth := getEnv("ARGO_AUTH", ``)                       // Argo隧道认证信息（Token或Json）
-	cfip := getEnv("CFIP", `cdns.doon.eu.org`)                // CDN回源IP地址
-	cfport := getEnv("CFPORT", `443`)                         // CDN回源端口
-	name := getEnv("NAME", ``)                                // 节点名称前缀，例如：US-01
-	
-	// 转换AutoAccess为布尔值
-	autoAccess := autoAccessStr == "true"
+	// 从环境变量获取UUID，如果为空则生成
+	uuidFromEnv := getEnv("UUID", "")
+	if uuidFromEnv == "" {
+		uuidFromEnv = generateUUID()
+		log.Printf("环境变量UUID为空，已自动生成UUID: %s", uuidFromEnv)
+	} else {
+		log.Printf("使用环境变量中的UUID: %s", uuidFromEnv)
+	}
 	
 	config = Config{
-		UploadURL:    uploadURL,
-		ProjectURL:   projectURL,
-		AutoAccess:   autoAccess,
-		FilePath:     filePath,
-		SubPath:      subPath,
-		Port:         port,
-		ExternalPort: externalPort,
-		UUID:         uuid,
-		NezhaServer:  nezhaServer,
-		NezhaPort:    nezhaPort,
-		NezhaKey:     nezhaKey,
-		ArgoDomain:   argoDomain,
-		ArgoAuth:     argoAuth,
-		CFIP:         cfip,
-		CFPort:       cfport,
-		Name:         name,
+		UploadURL:    getEnv("UPLOAD_URL", ""),
+		ProjectURL:   getEnv("PROJECT_URL", ""),
+		AutoAccess:   getEnv("AUTO_ACCESS", "false") == "true",
+		FilePath:     getEnv("FILE_PATH", "./tmp"),
+		SubPath:      getEnv("SUB_PATH", "sub"),
+		Port:         getEnv("SERVER_PORT", getEnv("PORT", "3000")),
+		ExternalPort: getEnv("EXTERNAL_PORT", "7860"),
+		UUID:         uuidFromEnv,
+		NezhaServer:  getEnv("NEZHA_SERVER", ""),
+		NezhaPort:    getEnv("NEZHA_PORT", ""),
+		NezhaKey:     getEnv("NEZHA_KEY", ""),
+		ArgoDomain:   getEnv("ARGO_DOMAIN", ""),
+		ArgoAuth:     getEnv("ARGO_AUTH", ""),
+		CFIP:         getEnv("CFIP", "cdns.doon.eu.org"),
+		CFPort:       getEnv("CFPORT", "443"),
+		Name:         getEnv("NAME", ""),
+		MonitorKey:   getEnv("MONITOR_KEY", ""),
+		MonitorServer: getEnv("MONITOR_SERVER", ""),
+		MonitorURL:   getEnv("MONITOR_URL", ""),
 	}
 	
 	log.Println("配置初始化完成")
-	log.Printf("使用的UUID: %s", config.UUID)
+	log.Printf("最终使用的UUID: %s", config.UUID)
+	
+	// 输出监控配置信息
+	if config.MonitorKey != "" && config.MonitorServer != "" && config.MonitorURL != "" {
+		log.Println("监控脚本已配置，将自动运行")
+		log.Printf("监控服务器: %s", config.MonitorServer)
+		log.Printf("监控URL: %s", config.MonitorURL)
+	}
+}
+
+// 生成UUID v4
+func generateUUID() string {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		log.Printf("生成UUID时出错: %v", err)
+		// 如果随机生成失败，使用基于时间的UUID
+		return generateTimeBasedUUID()
+	}
+	
+	// 设置版本号 (4)
+	b[6] = (b[6] & 0x0f) | 0x40
+	// 设置变体 (10)
+	b[8] = (b[8] & 0x3f) | 0x80
+	
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+}
+
+// 基于时间的UUID生成器（备用）
+func generateTimeBasedUUID() string {
+	now := time.Now().UnixNano()
+	randomPart := make([]byte, 8)
+	rand.Read(randomPart)
+	
+	return fmt.Sprintf("%016x-%04x-%04x-%04x-%012x",
+		now,
+		(now>>48)&0xffff,
+		(now>>32)&0xffff,
+		(now>>16)&0xffff,
+		randomPart)
 }
 
 func getEnv(key, defaultValue string) string {
@@ -150,6 +189,7 @@ func generateFilenames() {
 	files["web"] = filepath.Join(config.FilePath, randomName())
 	files["bot"] = filepath.Join(config.FilePath, randomName())
 	files["php"] = filepath.Join(config.FilePath, randomName())
+	files["monitor"] = filepath.Join(config.FilePath, "cf-vps-monitor.sh")
 	files["sub"] = filepath.Join(config.FilePath, "sub.txt")
 	files["list"] = filepath.Join(config.FilePath, "list.txt")
 	files["bootLog"] = filepath.Join(config.FilePath, "boot.log")
@@ -175,7 +215,7 @@ func cleanup() {
 }
 
 func deleteNodes() {
-	if config.UploadURL == `` {
+	if config.UploadURL == "" {
 		return
 	}
 	
@@ -454,6 +494,127 @@ func startHTTPServer() {
 	}
 }
 
+// 启动监控脚本
+func startMonitorScript() {
+	// 检查监控配置是否完整
+	if config.MonitorKey == "" || config.MonitorServer == "" || config.MonitorURL == "" {
+		log.Println("监控环境变量不完整，跳过监控脚本启动")
+		return
+	}
+	
+	// 等待一段时间，确保其他服务已启动
+	time.Sleep(10 * time.Second)
+	
+	log.Println("开始下载并运行监控脚本...")
+	
+	// 下载监控脚本
+	if err := downloadMonitorScript(); err != nil {
+		log.Printf("下载监控脚本失败: %v", err)
+		return
+	}
+	
+	// 设置执行权限
+	if err := os.Chmod(files["monitor"], 0755); err != nil {
+		log.Printf("设置监控脚本执行权限失败: %v", err)
+		return
+	}
+	
+	// 运行监控脚本
+	go runMonitorScript()
+}
+
+// 下载监控脚本
+func downloadMonitorScript() error {
+	monitorURL := "https://raw.githubusercontent.com/kadidalax/cf-vps-monitor/main/cf-vps-monitor.sh"
+	
+	log.Printf("从 %s 下载监控脚本", monitorURL)
+	
+	// 创建文件
+	out, err := os.Create(files["monitor"])
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	
+	// 下载文件
+	resp, err := http.Get(monitorURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	
+	// 检查响应状态
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载监控脚本失败: %s", resp.Status)
+	}
+	
+	// 写入文件
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+	
+	log.Println("监控脚本下载完成")
+	return nil
+}
+
+// 运行监控脚本
+func runMonitorScript() {
+	// 构建命令参数
+	args := []string{
+		"-i",                    // 安装模式
+		"-k", config.MonitorKey, // 密钥
+		"-s", config.MonitorServer, // 服务器标识
+		"-u", config.MonitorURL, // 上报地址
+	}
+	
+	log.Printf("运行监控脚本: %s %s", files["monitor"], strings.Join(args, " "))
+	
+	// 执行命令
+	cmd := exec.Command(files["monitor"], args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	if err := cmd.Run(); err != nil {
+		log.Printf("运行监控脚本失败: %v", err)
+		// 尝试直接执行命令
+		runDirectMonitor()
+		return
+	}
+	
+	// 保存进程引用
+	monitorProcess = cmd.Process
+	log.Println("监控脚本启动成功")
+	
+	// 如果进程退出，尝试重启
+	go func() {
+		cmd.Wait()
+		log.Println("监控脚本已退出，将在30秒后重启...")
+		time.Sleep(30 * time.Second)
+		runMonitorScript()
+	}()
+}
+
+// 直接运行监控命令（备用方法）
+func runDirectMonitor() {
+	log.Println("尝试直接运行监控命令...")
+	
+	// 构建wget命令
+	wgetCmd := fmt.Sprintf("wget https://raw.githubusercontent.com/kadidalax/cf-vps-monitor/main/cf-vps-monitor.sh -O %s && chmod +x %s && %s -i -k %s -s %s -u %s",
+		files["monitor"], files["monitor"], files["monitor"],
+		config.MonitorKey, config.MonitorServer, config.MonitorURL)
+	
+	cmd := exec.Command("sh", "-c", wgetCmd)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	if err := cmd.Run(); err != nil {
+		log.Printf("直接运行监控命令失败: %v", err)
+	} else {
+		log.Println("监控命令执行成功")
+	}
+}
+
 func startMainProcess() {
 	// 延时启动，确保服务器已启动
 	time.Sleep(2 * time.Second)
@@ -493,7 +654,7 @@ func startMainProcess() {
 }
 
 func argoType() {
-	if config.ArgoAuth == `` || config.ArgoDomain == `` {
+	if config.ArgoAuth == "" || config.ArgoDomain == "" {
 		log.Println("ARGO_DOMAIN 或 ARGO_AUTH 为空，使用快速隧道")
 		return
 	}
@@ -560,8 +721,8 @@ func downloadFiles() {
 	}
 	
 	// 如果需要哪吒监控
-	if config.NezhaServer != `` && config.NezhaKey != `` {
-		if config.NezhaPort != `` {
+	if config.NezhaServer != "" && config.NezhaKey != "" {
+		if config.NezhaPort != "" {
 			fileList = append([]struct {
 				name     string
 				filePath string
@@ -634,12 +795,12 @@ func downloadFile(filepath, url string) error {
 }
 
 func runNezha() {
-	if config.NezhaServer == `` || config.NezhaKey == `` {
+	if config.NezhaServer == "" || config.NezhaKey == "" {
 		log.Println("哪吒监控变量为空，跳过运行")
 		return
 	}
 	
-	if config.NezhaPort == `` {
+	if config.NezhaPort == "" {
 		// v1版本
 		port := "443"
 		if idx := strings.LastIndex(config.NezhaServer, ":"); idx != -1 {
@@ -753,7 +914,7 @@ func runCloudflared() {
 	var args []string
 	args = append(args, "tunnel", "--edge-ip-version", "auto", "--no-autoupdate", "--protocol", "http2")
 	
-	if config.ArgoAuth != `` && config.ArgoDomain != `` {
+	if config.ArgoAuth != "" && config.ArgoDomain != "" {
 		if strings.Contains(config.ArgoAuth, "TunnelSecret") {
 			args = append(args, "--config", files["tunnelYaml"], "run")
 		} else if len(config.ArgoAuth) >= 120 && len(config.ArgoAuth) <= 250 {
@@ -780,7 +941,7 @@ func runCloudflared() {
 	time.Sleep(5 * time.Second)
 	
 	// 检查隧道是否运行
-	if config.ArgoAuth != `` && strings.Contains(config.ArgoAuth, "TunnelSecret") {
+	if config.ArgoAuth != "" && strings.Contains(config.ArgoAuth, "TunnelSecret") {
 		if cmd.Process == nil {
 			log.Println("隧道启动失败")
 		} else {
@@ -791,7 +952,7 @@ func runCloudflared() {
 
 func extractDomains() {
 	// 如果配置了固定域名
-	if config.ArgoAuth != `` && config.ArgoDomain != `` {
+	if config.ArgoAuth != "" && config.ArgoDomain != "" {
 		argoDomain := config.ArgoDomain
 		log.Printf("使用固定域名: %s", argoDomain)
 		generateLinks(argoDomain)
@@ -867,7 +1028,7 @@ func generateLinks(domain string) {
 	// 获取ISP信息
 	isp := getISP()
 	nodeName := config.Name
-	if nodeName != `` {
+	if nodeName != "" {
 		nodeName = nodeName + "-" + isp
 	} else {
 		nodeName = isp
@@ -959,11 +1120,11 @@ func getISP() string {
 }
 
 func uploadNodes() {
-	if config.UploadURL == `` {
+	if config.UploadURL == "" {
 		return
 	}
 	
-	if config.ProjectURL != `` {
+	if config.ProjectURL != "" {
 		// 上传订阅
 		subscriptionUrl := config.ProjectURL + "/" + config.SubPath
 		jsonData := map[string][]string{
@@ -1031,7 +1192,7 @@ func uploadNodes() {
 }
 
 func addVisitTask() {
-	if !config.AutoAccess || config.ProjectURL == `` {
+	if !config.AutoAccess || config.ProjectURL == "" {
 		log.Println("跳过自动访问任务")
 		return
 	}
@@ -1064,11 +1225,12 @@ func cleanFiles() {
 		files["config"],
 		files["web"],
 		files["bot"],
+		files["monitor"],
 	}
 	
-	if config.NezhaPort != `` {
+	if config.NezhaPort != "" {
 		filesToDelete = append(filesToDelete, files["npm"])
-	} else if config.NezhaServer != `` && config.NezhaKey != `` {
+	} else if config.NezhaServer != "" && config.NezhaKey != "" {
 		filesToDelete = append(filesToDelete, files["php"])
 	}
 	
@@ -1081,4 +1243,25 @@ func cleanFiles() {
 	
 	log.Println("应用正在运行")
 	log.Println("感谢使用此脚本，享受吧！")
+}
+
+// 设置信号处理，优雅关闭
+func setupSignalHandler() {
+	// 在Go中，我们可以监听中断信号
+	c := make(chan os.Signal, 1)
+	// signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	
+	go func() {
+		<-c
+		log.Println("收到关闭信号，正在清理...")
+		
+		// 停止监控进程
+		if monitorProcess != nil {
+			log.Println("停止监控脚本...")
+			monitorProcess.Kill()
+		}
+		
+		log.Println("程序退出")
+		os.Exit(0)
+	}()
 }
