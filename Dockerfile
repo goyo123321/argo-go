@@ -19,7 +19,7 @@ COPY go.mod go.sum ./
 # 设置环境变量
 ENV GOPROXY=https://goproxy.cn,direct
 ENV GO111MODULE=on
-ENV USER=root  # 解决监控脚本中 USER 变量未定义的问题
+ENV USER=root
 
 # 复制源代码
 COPY . .
