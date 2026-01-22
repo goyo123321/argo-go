@@ -7,7 +7,13 @@ RUN go build -o app main.go
 
 # 运行阶段
 FROM alpine:3.20
-RUN apk add --no-cache bash curl ifstat jq
+# 安装运行所需的依赖
+RUN apk add --no-cache \
+    bash \
+    curl \
+    jq \
+    iproute2 \
+    && rm -rf /var/cache/apk/*
 WORKDIR /app
 COPY --from=builder /app/app .
 COPY --from=builder /app/tmp ./tmp
