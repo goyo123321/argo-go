@@ -1,5 +1,6 @@
-# 使用官方 Go 镜像
-FROM golang:1.21-alpine
+# 多阶段构建版本，减小镜像大小
+# 第一阶段：构建
+FROM golang:1.21-alpine AS builder
 
 # 安装必要的工具
 RUN apk add --no-cache git curl bash
@@ -14,11 +15,26 @@ COPY go.mod go.sum ./
 ENV GOPROXY=https://goproxy.cn,direct
 ENV GO111MODULE=on
 
+# 下载依赖
+RUN go mod download
+
 # 复制源代码
 COPY . .
 
 # 编译应用
 RUN go build -o go-app main.go
+
+# 第二阶段：运行
+FROM alpine:latest
+
+# 安装运行时需要的依赖
+RUN apk --no-cache add ca-certificates tzdata
+
+# 设置工作目录
+WORKDIR /root/
+
+# 从构建阶段复制可执行文件
+COPY --from=builder /app/go-app .
 
 # 暴露端口
 EXPOSE 3000 7860
