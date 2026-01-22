@@ -18,10 +18,10 @@ ENV GO111MODULE=on
 COPY . .
 
 # 编译应用
-RUN go build -o proxy-server main.go
+RUN go build -o app main.go
 
 # 暴露端口
 EXPOSE 3000 7860
 
 # 运行应用
-CMD ["./proxy-server"]
+CMD ["./app"]
