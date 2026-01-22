@@ -1,43 +1,37 @@
-# 构建阶段
-FROM golang:1.21-alpine AS builder
+# 使用官方 Go 镜像
+FROM golang:1.21-alpine
 
+# 安装必要的工具和监控依赖
+RUN apk add --no-cache \
+    git \
+    curl \
+    bash \
+    ifstat \
+    jq \
+    && echo "安装监控依赖完成"
+
+# 设置工作目录
 WORKDIR /app
 
-# 复制依赖文件
+# 复制 Go 模块文件
 COPY go.mod go.sum ./
 
-# 下载依赖
-RUN go mod download
+# 设置环境变量
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GO111MODULE=on
+ENV USER=root  # 解决监控脚本中 USER 变量未定义的问题
 
 # 复制源代码
 COPY . .
 
-# 编译应用
+# 编译应用 - 输出文件名为 app
 RUN go build -o app main.go
 
-# 运行阶段 - 使用更小的基础镜像
-FROM alpine:3.20
-
-# 安装最小依赖集
-RUN apk add --no-cache \
-    bash \
-    curl \
-    jq \
-    iproute2
-
-WORKDIR /app
-
-# 从构建阶段复制可执行文件
-COPY --from=builder /app/app /app/
-
-# 创建应用运行所需的目录
-RUN mkdir -p /app/tmp
-
-# 设置环境变量
-ENV USER=root
+# 创建必要的目录结构（根据日志需要）
+RUN mkdir -p ./tmp
 
 # 暴露端口
 EXPOSE 3000 7860
 
 # 运行应用
-ENTRYPOINT ["./app"]
+CMD ["./app"]
