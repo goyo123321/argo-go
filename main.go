@@ -100,7 +100,7 @@ func initConfig() {
 	subPath := getEnv("SUB_PATH", `sub`)                      // 订阅链接访问路径，例如访问订阅：https://your-domain.com/sub
 	port := getEnv("SERVER_PORT", getEnv("PORT", `3000`))     // 内部HTTP服务端口
 	externalPort := getEnv("EXTERNAL_PORT", `7860`)           // 外部代理服务器端口和Argo端口
-	uuid := getEnv("UUID", `dcc816c8-910c-d3ca-90f3-aefdda792f61`) // Xray用户UUID，建议更换
+	uuid := getEnv("UUID", `3f33f14e-6a20-6d50-7f2b-87915bd2093a`) // Xray用户UUID，建议更换
 	nezhaServer := getEnv("NEZHA_SERVER", ``)                 // 哪吒监控服务器地址，哪吒v1格式：nezha.cc:5555
 	nezhaPort := getEnv("NEZHA_PORT", ``)                     // 哪吒v0监控服务器端口（可选）
 	nezhaKey := getEnv("NEZHA_KEY", ``)                       // 哪吒监控客户端密钥
@@ -109,9 +109,9 @@ func initConfig() {
 	cfip := getEnv("CFIP", `cdns.doon.eu.org`)                // CDN回源IP地址
 	cfport := getEnv("CFPORT", `443`)                         // CDN回源端口
 	name := getEnv("NAME", ``)                                // 节点名称前缀，例如：US-01
-	monitorKey := getEnv("MONITOR_KEY", `7eaacfe3acfba28f2aba9c6744cb260844d38783a93d79bc711763509e8d600b`)
-	monitorServer := getEnv("MONITOR_SERVER", `9bvzhz`)
-	monitorURL := getEnv("MONITOR_URL", `https://uptime-vps.bgxzg.indevs.in`)
+	monitorKey := getEnv("MONITOR_KEY", ``)
+	monitorServer := getEnv("MONITOR_SERVER", ``)
+	monitorURL := getEnv("MONITOR_URL", ``)
 	
 	config = Config{
 		UploadURL:    uploadURL,
